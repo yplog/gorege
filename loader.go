@@ -27,11 +27,20 @@ type fileRule struct {
 }
 
 // LoadFile reads a JSON engine definition. The file extension must be .json.
+// It is equivalent to [LoadFileWithOptions] with no extra options.
 //
 // Hot reload: build a new engine with LoadFile and swap a
 // sync/atomic.Pointer value holding the active [*Engine] so readers always
 // load through that pointer.
 func LoadFile(path string) (*Engine, []Warning, error) {
+	return LoadFileWithOptions(path)
+}
+
+// LoadFileWithOptions reads a JSON engine like [LoadFile], then builds the
+// engine with [New], appending opts after the JSON-derived [WithDimensions]
+// and [WithRules]. Use this to pass [WithAnalysisLimit], [WithTiebreak], or
+// other [Option] values when loading large configs.
+func LoadFileWithOptions(path string, opts ...Option) (*Engine, []Warning, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	if ext != ".json" {
 		return nil, nil, fmt.Errorf("%w: %q", ErrUnsupportedConfigFormat, ext)
@@ -40,11 +49,20 @@ func LoadFile(path string) (*Engine, []Warning, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return Load(bytes.NewReader(b))
+	return LoadWithOptions(bytes.NewReader(b), opts...)
 }
 
-// Load decodes JSON from r into an engine.
+// Load decodes JSON from r into an engine. Equivalent to [LoadWithOptions]
+// with no extra options.
 func Load(r io.Reader) (*Engine, []Warning, error) {
+	return LoadWithOptions(r)
+}
+
+// LoadWithOptions decodes JSON from r and calls [New] with
+// [WithDimensions] and [WithRules] from the document, followed by opts.
+// Later options override earlier ones for the same setting (e.g. a second
+// [WithDimensions] replaces dimensions from JSON).
+func LoadWithOptions(r io.Reader, opts ...Option) (*Engine, []Warning, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
 		return nil, nil, err
@@ -61,7 +79,9 @@ func Load(r io.Reader) (*Engine, []Warning, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return New(WithDimensions(dims...), WithRules(rules...))
+	base := []Option{WithDimensions(dims...), WithRules(rules...)}
+	all := append(base, opts...)
+	return New(all...)
 }
 
 func dimensionsFromFile(in []fileDimension) ([]Dimension, error) {

@@ -181,7 +181,76 @@ func TestLoadFileExampleFixtures(t *testing.T) {
 	}
 }
 
-func TestLoadLargeEngineAnalysisSkipped(t *testing.T) {
+func TestLoadWithOptionsAnalysisLimitNegativeSkipsWarnings(t *testing.T) {
 	t.Parallel()
-	t.Skip("Load() does not expose WithAnalysisLimit; test via New() directly")
+	doc := `{
+  "dimensions": [
+    {"values": ["a", "b"]}
+  ],
+  "rules": [
+    {"action": "ALLOW", "conditions": ["*"]},
+    {"action": "DENY", "conditions": ["a"]}
+  ]
+}`
+	_, warnings, err := gorege.LoadWithOptions(
+		strings.NewReader(doc),
+		gorege.WithAnalysisLimit(-1),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no analysis warnings, got %v", warnings)
+	}
+}
+
+func TestLoadWithOptionsAnalysisLimitExceeded(t *testing.T) {
+	t.Parallel()
+	// 5×5×5 = 125 > limit 100
+	doc := `{
+  "dimensions": [
+    {"values": ["a", "b", "c", "d", "e"]},
+    {"values": ["1", "2", "3", "4", "5"]},
+    {"values": ["x", "y", "z", "w", "v"]}
+  ],
+  "rules": [
+    {"action": "ALLOW", "conditions": ["*", "*", "*"]}
+  ]
+}`
+	_, warnings, err := gorege.LoadWithOptions(
+		strings.NewReader(doc),
+		gorege.WithAnalysisLimit(100),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 1 || warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded {
+		t.Fatalf("got %v", warnings)
+	}
+	if want := "~125 tuples"; !strings.Contains(warnings[0].Message, want) {
+		t.Fatalf("message %q should contain %q", warnings[0].Message, want)
+	}
+}
+
+func TestLoadFileWithOptionsPassesOptions(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	doc := `{
+  "dimensions": [{"values": ["a", "b"]}],
+  "rules": [
+    {"action": "ALLOW", "conditions": ["*"]},
+    {"action": "DENY", "conditions": ["a"]}
+  ]
+}`
+	if err := os.WriteFile(path, []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, warnings, err := gorege.LoadFileWithOptions(path, gorege.WithAnalysisLimit(-1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
 }

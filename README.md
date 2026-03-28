@@ -6,7 +6,7 @@ Design goals: idiomatic Go, immutable engines safe for concurrent use, explicit 
 
 - **Go 1.26+**
 - **Zero runtime dependencies** (standard library only)
-- **JSON** configuration via `Load` / `LoadFile` (`.json` only)
+- **JSON** configuration via `Load` / `LoadFile` / `LoadWithOptions` / `LoadFileWithOptions` (`.json` only)
 
 ## Install
 
@@ -76,7 +76,7 @@ Evaluation is **first match wins**. If nothing matches, `Check` returns `false`.
 
 ## JSON config
 
-`LoadFile("rules.json")` and `Load(io.Reader)` decode the same schema. Example (see also `testdata/rules.json`):
+`LoadFile`, `LoadFileWithOptions`, `Load`, and `LoadWithOptions` decode the same schema. Extra options (for example `WithAnalysisLimit`) apply after the JSON-derived dimensions and rules. Example (see also `testdata/rules.json`):
 
 ```json
 {
@@ -97,9 +97,9 @@ Evaluation is **first match wins**. If nothing matches, `Check` returns `false`.
 - A JSON array of strings in a slot is `AnyOf`.
 - Omit `name` on a dimension to get an anonymous axis (`DimValues`-style).
 
-On `New` / `Load`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
+On `New`, `Load`, or `LoadWithOptions`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
 
-> **Performance note:** Rule analysis runs over the Cartesian product of all declared dimension values. With large dimension sets (e.g. 6 dimensions × 20 values = 64 000 000 tuples) this can be slow. The default cap is 100 000 tuples; use `WithAnalysisLimit(n)` to adjust, or pass a negative value to skip analysis entirely.
+> **Performance note:** Rule analysis runs over the Cartesian product of all declared dimension values. With large dimension sets (e.g. 6 dimensions × 20 values = 64 000 000 tuples) this can be slow. The default cap is 100 000 tuples; use `WithAnalysisLimit(n)` with `New` or `LoadWithOptions` / `LoadFileWithOptions` to adjust, or pass a negative value to skip analysis entirely.
 
 ## API overview
 
@@ -109,7 +109,7 @@ On `New` / `Load`, the engine reports **warnings** for rules that never match an
 | Inspect | `Dimensions`, `Rules` (defensive copies) |
 | Evaluate | `Check`, `PartialCheck`, `Explain` |
 | Nearest allow | `Closest`, `ClosestIn` (tiebreak: leftmost / rightmost / decl order) |
-| Config | `LoadFile` (`.json` only), `Load` |
+| Config | `LoadFile`, `LoadFileWithOptions`, `Load`, `LoadWithOptions` (`.json` only) |
 | Types | `Dimension`, `Rule`, `Action`, `Explanation`, `ClosestResult`, `Warning`, `WarningKind` |
 
 `Engine` is immutable and safe to share. For hot reload, load a new engine and swap a `sync/atomic.Pointer` holding `*gorege.Engine`.
@@ -155,7 +155,7 @@ dimension.go Dimensions
 check.go     Check, PartialCheck, Explain
 closest.go   Closest, ClosestIn, tiebreak
 conflict.go  Dead / shadow warnings
-loader.go    JSON Load / LoadFile
+loader.go    JSON Load / LoadFile (+ WithOptions variants)
 result.go    Explanation, ClosestResult, Action helpers
 cmd/gorege   CLI
 fuzz_test.go Go fuzz targets (Load, Check, …)

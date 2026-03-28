@@ -107,9 +107,9 @@ func buildWarnings(cfg engineConfig) []Warning {
 		return []Warning{{
 			Kind: WarningKindAnalysisLimitExceeded,
 			Message: fmt.Sprintf(
-				"rule analysis skipped: dimension product (%d+ tuples) exceeds limit (%d); "+
+				"rule analysis skipped: dimension product (~%d tuples) exceeds limit (%d); "+
 					"use WithAnalysisLimit to raise or lower the threshold",
-				limit+1, limit,
+				count, limit,
 			),
 		}}
 	}
