@@ -24,6 +24,63 @@ func TestRealMainUsage(t *testing.T) {
 	}
 }
 
+func TestRealMainDispatchesSubcommands(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	doc := `{
+  "dimensions": [
+    {"name":"role","values":["u","v"]},
+    {"name":"flag","values":["0","1"]}
+  ],
+  "rules": [
+    {"action":"DENY","conditions":["u","0"]},
+    {"action":"ALLOW","conditions":["*","*"]}
+  ]
+}`
+	if err := os.WriteFile(path, []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	simple := filepath.Join(dir, "one.json")
+	if err := os.WriteFile(simple, []byte(`{"dimensions":[{"name":"x","values":["a"]}],"rules":[{"action":"ALLOW","conditions":["a"]}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		args []string
+		want int
+	}{
+		{[]string{"gorege", "check", simple, "a"}, 0},
+		{[]string{"gorege", "explain", simple, "a"}, 0},
+		{[]string{"gorege", "closest", path, "u", "0"}, 0},
+		{[]string{"gorege", "closest-in", path, "1", "u", "0"}, 0},
+		{[]string{"gorege", "lint", simple}, 0},
+	}
+	for _, tc := range cases {
+		rOut, wOut, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		rErr, wErr, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		oldOut, oldErr := os.Stdout, os.Stderr
+		os.Stdout, os.Stderr = wOut, wErr
+		code := realMain(tc.args)
+		mustClose(t, wOut)
+		mustClose(t, wErr)
+		var discard bytes.Buffer
+		_, _ = discard.ReadFrom(rOut)
+		_, _ = discard.ReadFrom(rErr)
+		mustClose(t, rOut)
+		mustClose(t, rErr)
+		os.Stdout, os.Stderr = oldOut, oldErr
+		if code != tc.want {
+			t.Fatalf("args=%v code=%d want %d", tc.args, code, tc.want)
+		}
+	}
+}
+
 func TestRunCheckMissingPath(t *testing.T) {
 	if code := runCheck(nil); code != 2 {
 		t.Fatalf("code=%d", code)
@@ -251,6 +308,46 @@ func TestRunClosestMissingPath(t *testing.T) {
 	}
 }
 
+func TestRunClosestLoadError(t *testing.T) {
+	if code := runClosest([]string{"/nonexistent/gorege-closest-xyz.json"}); code != 1 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRunClosestNoNeighborExit1(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(path, []byte(`{
+  "dimensions": [{"name":"x","values":["a","b"]}],
+  "rules": [
+    {"action":"ALLOW","conditions":["a"]},
+    {"action":"DENY","conditions":["*"]}
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldOut := os.Stdout
+	os.Stdout = wOut
+	code := runClosest([]string{path, "a"})
+	mustClose(t, wOut)
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(rOut); err != nil {
+		t.Fatal(err)
+	}
+	mustClose(t, rOut)
+	os.Stdout = oldOut
+	if code != 1 {
+		t.Fatalf("code=%d out=%q", code, buf.String())
+	}
+	if !strings.Contains(buf.String(), "found: false") {
+		t.Fatalf("stdout=%q", buf.String())
+	}
+}
+
 func TestRunClosestArityMismatch(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "rules.json")
@@ -346,6 +443,40 @@ func TestRunClosestInMissingArgs(t *testing.T) {
 	}
 	if code := runClosestIn(nil); code != 2 {
 		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRunClosestInLoadError(t *testing.T) {
+	if code := runClosestIn([]string{"/nonexistent/gorege-closest-in-xyz.json", "0", "a"}); code != 1 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRunClosestInInvalidDimensionExit1(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(path, []byte(`{
+  "dimensions": [{"name":"x","values":["a"]}],
+  "rules": [{"action":"ALLOW","conditions":["a"]}]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rErr, wErr, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldErr := os.Stderr
+	os.Stderr = wErr
+	code := runClosestIn([]string{path, "nope", "a"})
+	mustClose(t, wErr)
+	var errBuf bytes.Buffer
+	if _, err := errBuf.ReadFrom(rErr); err != nil {
+		t.Fatal(err)
+	}
+	mustClose(t, rErr)
+	os.Stderr = oldErr
+	if code != 1 {
+		t.Fatalf("code=%d stderr=%q", code, errBuf.String())
 	}
 }
 

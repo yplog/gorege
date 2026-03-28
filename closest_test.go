@@ -172,6 +172,82 @@ func TestClosestInInvalidSelector(t *testing.T) {
 	}
 }
 
+func TestClosestNilWhenOnlyCurrentTupleAllowed(t *testing.T) {
+	t.Parallel()
+	e, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(gorege.Allow("a"), gorege.Deny(gorege.Wildcard)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.Closest("a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res != nil {
+		t.Fatalf("expected no closer allowed tuple, got %#v", res)
+	}
+}
+
+func TestClosestInArityMismatch(t *testing.T) {
+	t.Parallel()
+	e, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues("a")),
+		gorege.WithRules(gorege.Allow("a")),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = e.ClosestIn(0)
+	if !errors.Is(err, gorege.ErrArityMismatch) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestClosestInZeroDimensionsResolveDimFails(t *testing.T) {
+	t.Parallel()
+	e, _, err := gorege.New(gorege.WithRules(gorege.Allow()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No dimensions: any numeric index is out of range (0 >= len).
+	_, err = e.ClosestIn(0)
+	if !errors.Is(err, gorege.ErrInvalidDimension) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestClosestInIntOutOfRange(t *testing.T) {
+	t.Parallel()
+	e, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues("a")),
+		gorege.WithRules(gorege.Allow("a")),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = e.ClosestIn(1, "a")
+	if !errors.Is(err, gorege.ErrInvalidDimension) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestClosestInNilWhenOnlyCurrentTupleAllowed(t *testing.T) {
+	t.Parallel()
+	e, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(gorege.Allow("a"), gorege.Deny(gorege.Wildcard)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.ClosestIn(0, "a")
+	if err != nil || res != nil {
+		t.Fatalf("res=%v err=%v", res, err)
+	}
+}
+
 func TestClosestInNilWhenNoAlternativeWorks(t *testing.T) {
 	t.Parallel()
 	e, _, err := gorege.New(

@@ -88,3 +88,91 @@ func TestEngineDimensionsCopy(t *testing.T) {
 		t.Fatal("mutating copy should not affect engine")
 	}
 }
+
+func TestAnalysisLimitExceeded(t *testing.T) {
+	t.Parallel()
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(100),
+		gorege.WithDimensions(
+			gorege.DimValues("a", "b", "c", "d", "e"),
+			gorege.DimValues("1", "2", "3", "4", "5"),
+			gorege.DimValues("x", "y", "z", "w", "v"),
+		),
+		gorege.WithRules(gorege.Allow(gorege.Wildcard, gorege.Wildcard, gorege.Wildcard)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 1 || warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded {
+		t.Fatalf("expected AnalysisLimitExceeded warning, got %v", warnings)
+	}
+}
+
+func TestAnalysisLimitNegativeSkipsAnalysis(t *testing.T) {
+	t.Parallel()
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(-1),
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(
+			gorege.Allow(gorege.Wildcard),
+			gorege.Deny("a"),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
+}
+
+func TestAnalysisLimitProductEqualToLimitStillAnalyzes(t *testing.T) {
+	t.Parallel()
+	axis := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(100),
+		gorege.WithDimensions(
+			gorege.DimValues(axis...),
+			gorege.DimValues(axis...),
+		),
+		gorege.WithRules(
+			gorege.Allow(gorege.Wildcard, gorege.Wildcard),
+			gorege.Deny("0", "0"),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range warnings {
+		if w.Kind == gorege.WarningKindAnalysisLimitExceeded {
+			t.Fatalf("100 tuples should not exceed limit 100: %v", warnings)
+		}
+	}
+	found := false
+	for _, w := range warnings {
+		if w.Kind == gorege.WarningKindShadowed {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected shadowed warning, got %v", warnings)
+	}
+}
+
+func TestAnalysisLimitZeroUsesDefault(t *testing.T) {
+	t.Parallel()
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(0),
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(
+			gorege.Allow(gorege.Wildcard),
+			gorege.Deny("a"),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 1 || warnings[0].Kind != gorege.WarningKindShadowed {
+		t.Fatalf("expected shadowed warning, got %v", warnings)
+	}
+}

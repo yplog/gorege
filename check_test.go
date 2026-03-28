@@ -189,6 +189,17 @@ func TestUnknownValueInRuleRejectedAtNew(t *testing.T) {
 	}
 }
 
+func TestAnyOfPartialUnknownValueRejectedAtNew(t *testing.T) {
+	t.Parallel()
+	_, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(gorege.Allow(gorege.AnyOf("a", "z"))),
+	)
+	if !errors.Is(err, gorege.ErrUnknownDimensionValue) {
+		t.Fatalf("expected ErrUnknownDimensionValue, got %v", err)
+	}
+}
+
 func TestPartialCheckTooManyValues(t *testing.T) {
 	t.Parallel()
 	e, _, err := gorege.New(

@@ -12,6 +12,9 @@ const (
 	// WarningKindShadowed means the rule matches some tuple but never wins
 	// first-match against earlier rules.
 	WarningKindShadowed
+	// WarningKindAnalysisLimitExceeded means dead/shadowed analysis was skipped
+	// because the dimension value product exceeded the configured limit.
+	WarningKindAnalysisLimitExceeded
 )
 
 // String implements [fmt.Stringer] for [WarningKind].
@@ -21,6 +24,8 @@ func (k WarningKind) String() string {
 		return "dead"
 	case WarningKindShadowed:
 		return "shadowed"
+	case WarningKindAnalysisLimitExceeded:
+		return "analysis_limit_exceeded"
 	default:
 		return "WarningKind(" + strconv.Itoa(int(k)) + ")"
 	}
@@ -30,6 +35,24 @@ func (k WarningKind) String() string {
 type Warning struct {
 	Kind    WarningKind
 	Message string
+}
+
+// tupleCount computes the Cartesian product size of dimension value lists.
+// If limit > 0, multiplication stops as soon as total exceeds limit (the
+// full product is not computed). When over limit, the returned value is the
+// running product at that step (greater than limit).
+func tupleCount(dims []Dimension, limit int64) int64 {
+	total := int64(1)
+	for _, d := range dims {
+		if len(d.values) == 0 {
+			return 0
+		}
+		total *= int64(len(d.values))
+		if limit > 0 && total > limit {
+			return total
+		}
+	}
+	return total
 }
 
 func ruleWarnings(dims []Dimension, rules []Rule) []Warning {

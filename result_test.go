@@ -44,6 +44,12 @@ func TestWarningKindString(t *testing.T) {
 	if gorege.WarningKindShadowed.String() != "shadowed" {
 		t.Fatal()
 	}
+	if gorege.WarningKindAnalysisLimitExceeded.String() != "analysis_limit_exceeded" {
+		t.Fatal()
+	}
+	if s := gorege.WarningKind(42).String(); s != "WarningKind(42)" {
+		t.Fatalf("unexpected string: %q", s)
+	}
 }
 
 func TestTiebreakGoString(t *testing.T) {

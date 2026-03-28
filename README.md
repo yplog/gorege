@@ -4,7 +4,7 @@ A small Go library for **first-match rule evaluation** over a fixed tuple of dim
 
 Design goals: idiomatic Go, immutable engines safe for concurrent use, explicit semantics (including `Explain` and dead/shadow rule warnings), and a true BFS-based `Closest` search for minimum Hamming distance. The API is influenced by [recht](https://github.com/dashersw/recht); gorege adds stronger guarantees and observability.
 
-- **Go 1.21+**
+- **Go 1.26+**
 - **Zero runtime dependencies** (standard library only)
 - **JSON** configuration via `Load` / `LoadFile` (`.json` only)
 
@@ -97,13 +97,15 @@ Evaluation is **first match wins**. If nothing matches, `Check` returns `false`.
 - A JSON array of strings in a slot is `AnyOf`.
 - Omit `name` on a dimension to get an anonymous axis (`DimValues`-style).
 
-On `New` / `Load`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”). Each `Warning` includes `Kind` (`WarningKindDead` or `WarningKindShadowed`) so callers need not parse `Message`.
+On `New` / `Load`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
+
+> **Performance note:** Rule analysis runs over the Cartesian product of all declared dimension values. With large dimension sets (e.g. 6 dimensions × 20 values = 64 000 000 tuples) this can be slow. The default cap is 100 000 tuples; use `WithAnalysisLimit(n)` to adjust, or pass a negative value to skip analysis entirely.
 
 ## API overview
 
 | Area | Functions |
 |------|-----------|
-| Build | `New`, `WithDimensions`, `WithRules`, `WithTiebreak` |
+| Build | `New`, `WithDimensions`, `WithRules`, `WithTiebreak`, `WithAnalysisLimit` (rule analysis tuple cap, default 100 000) |
 | Inspect | `Dimensions`, `Rules` (defensive copies) |
 | Evaluate | `Check`, `PartialCheck`, `Explain` |
 | Nearest allow | `Closest`, `ClosestIn` (tiebreak: leftmost / rightmost / decl order) |

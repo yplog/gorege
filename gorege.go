@@ -10,10 +10,11 @@ type Engine struct {
 }
 
 type engineConfig struct {
-	dims  []Dimension
-	rules []Rule
-	tb    TiebreakStrategy
-	hasTB bool
+	dims          []Dimension
+	rules         []Rule
+	tb            TiebreakStrategy
+	hasTB         bool
+	analysisLimit int // 0 = use DefaultAnalysisLimit; negative = skip analysis
 }
 
 // Option configures [New].
@@ -45,9 +46,29 @@ func WithTiebreak(s TiebreakStrategy) Option {
 	}
 }
 
+// WithAnalysisLimit sets the upper bound on tuples scanned for dead/shadowed
+// rule analysis in [New].
+//
+//   - n == 0: use [DefaultAnalysisLimit].
+//   - n < 0: skip analysis entirely (no dead/shadowed or limit warnings).
+//   - n > 0: if the dimension value product exceeds n, analysis is skipped and
+//     [New] returns a [Warning] with kind [WarningKindAnalysisLimitExceeded].
+func WithAnalysisLimit(n int) Option {
+	return func(c *engineConfig) error {
+		c.analysisLimit = n
+		return nil
+	}
+}
+
 // New builds an immutable engine. It validates matchers against dimensions and
-// returns warnings for dead or shadowed rules (finite Cartesian product over
-// declared dimension values).
+// returns warnings for dead or shadowed rules.
+//
+// Rule analysis walks the full Cartesian product of declared dimension values.
+// For large dimension sets this can be expensive: the default upper bound is
+// [DefaultAnalysisLimit] tuples. Use [WithAnalysisLimit] to raise, lower, or
+// disable (negative value) this threshold. When the limit is exceeded, a
+// [Warning] with kind [WarningKindAnalysisLimitExceeded] is returned and
+// dead/shadowed analysis is skipped entirely.
 func New(opts ...Option) (*Engine, []Warning, error) {
 	var cfg engineConfig
 	for _, o := range opts {
@@ -70,7 +91,29 @@ func New(opts ...Option) (*Engine, []Warning, error) {
 		rules:    cloneRules(cfg.rules),
 		tiebreak: tb,
 	}
-	return e, ruleWarnings(cfg.dims, cfg.rules), nil
+	return e, buildWarnings(cfg), nil
+}
+
+func buildWarnings(cfg engineConfig) []Warning {
+	limit := cfg.analysisLimit
+	if limit < 0 {
+		return nil
+	}
+	if limit == 0 {
+		limit = DefaultAnalysisLimit
+	}
+	count := tupleCount(cfg.dims, int64(limit))
+	if count > int64(limit) {
+		return []Warning{{
+			Kind: WarningKindAnalysisLimitExceeded,
+			Message: fmt.Sprintf(
+				"rule analysis skipped: dimension product (%d+ tuples) exceeds limit (%d); "+
+					"use WithAnalysisLimit to raise or lower the threshold",
+				limit+1, limit,
+			),
+		}}
+	}
+	return ruleWarnings(cfg.dims, cfg.rules)
 }
 
 func validateEngine(dims []Dimension, rules []Rule) error {

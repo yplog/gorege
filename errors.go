@@ -2,6 +2,11 @@ package gorege
 
 import "errors"
 
+// DefaultAnalysisLimit is the default upper bound on the number of dimension
+// tuples considered when [New] runs dead/shadowed rule analysis. Use
+// [WithAnalysisLimit] to change this cap.
+const DefaultAnalysisLimit = 100_000
+
 var (
 	// ErrArityMismatch is returned by [Engine.Check] when the number of
 	// arguments does not equal the number of dimensions.

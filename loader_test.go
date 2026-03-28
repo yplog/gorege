@@ -43,6 +43,15 @@ func TestLoadFileUnsupportedExt(t *testing.T) {
 	}
 }
 
+func TestLoadFileMissingPath(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "nope.json")
+	_, _, err := gorege.LoadFile(path)
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
 type errReader struct{}
 
 func (errReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
@@ -170,4 +179,9 @@ func TestLoadFileExampleFixtures(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLoadLargeEngineAnalysisSkipped(t *testing.T) {
+	t.Parallel()
+	t.Skip("Load() does not expose WithAnalysisLimit; test via New() directly")
 }
