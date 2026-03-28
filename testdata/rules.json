@@ -1,0 +1,33 @@
+{
+  "dimensions": [
+    {
+      "name": "membership",
+      "values": ["Gold member", "Regular member", "Guest"]
+    },
+    {
+      "name": "day",
+      "values": ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    },
+    {
+      "name": "facility",
+      "values": ["Swimming pool", "Gym", "Sauna"]
+    }
+  ],
+  "rules": [
+    {
+      "action": "ALLOW",
+      "name": "allow-gold",
+      "conditions": ["Gold member", "*", "*"]
+    },
+    {
+      "action": "DENY",
+      "name": "deny-guest-sauna-early-week",
+      "conditions": ["Guest", ["Mon", "Tue"], "Sauna"]
+    },
+    {
+      "action": "ALLOW",
+      "name": "allow-rest",
+      "conditions": [["Guest", "Regular member"], "*", "*"]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+[tools]
+go = "1.26.0"
+
+# Task runner (to execute Taskfile.yml commands)
+task = "latest"
+
+# Code quality and static analysis (for task lint)
+golangci-lint = "latest"

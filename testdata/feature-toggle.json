@@ -1,0 +1,28 @@
+{
+  "dimensions": [
+    { "name": "environment", "values": ["prod", "staging", "dev"] },
+    { "name": "feature", "values": ["new_checkout", "beta_search", "legacy_only"] }
+  ],
+  "rules": [
+    {
+      "action": "ALLOW",
+      "name": "prod-legacy-safe",
+      "conditions": ["prod", "legacy_only"]
+    },
+    {
+      "action": "ALLOW",
+      "name": "nonprod-any-feature",
+      "conditions": [["staging", "dev"], "*"]
+    },
+    {
+      "action": "DENY",
+      "name": "prod-no-beta",
+      "conditions": ["prod", "beta_search"]
+    },
+    {
+      "action": "ALLOW",
+      "name": "prod-rest",
+      "conditions": ["prod", "*"]
+    }
+  ]
+}

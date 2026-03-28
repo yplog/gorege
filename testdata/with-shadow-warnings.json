@@ -1,0 +1,17 @@
+{
+  "dimensions": [
+    { "name": "tenant", "values": ["acme", "contoso"] }
+  ],
+  "rules": [
+    {
+      "action": "ALLOW",
+      "name": "catch-all-tenants",
+      "conditions": ["*"]
+    },
+    {
+      "action": "DENY",
+      "name": "never-wins-acme-deny",
+      "conditions": ["acme"]
+    }
+  ]
+}

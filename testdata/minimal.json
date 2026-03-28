@@ -1,0 +1,9 @@
+{
+  "dimensions": [
+    { "values": ["on", "off"] }
+  ],
+  "rules": [
+    { "action": "ALLOW", "name": "on-only", "conditions": ["on"] },
+    { "action": "DENY", "name": "default-off", "conditions": ["*"] }
+  ]
+}

@@ -1,0 +1,65 @@
+version: "3"
+
+vars:
+  GOFLAGS: ""
+
+tasks:
+  default:
+    desc: Run tests (same as `task test`)
+    cmds:
+      - task: test
+
+  tidy:
+    desc: Tidy module dependencies
+    cmds:
+      - go mod tidy
+
+  fmt:
+    desc: Format all packages
+    cmds:
+      - go fmt ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  build:
+    desc: Verify the module compiles
+    cmds:
+      - go build {{.GOFLAGS}} ./...
+
+  build-cli:
+    desc: Build the gorege binary into ./bin/
+    cmds:
+      - mkdir -p bin
+      - go build {{.GOFLAGS}} -o bin/gorege ./cmd/gorege
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test {{.GOFLAGS}} ./...
+
+  test-race:
+    desc: Run tests with the race detector
+    cmds:
+      - go test -race ./...
+
+  cover:
+    desc: Run tests with coverage summary (per package + merged total)
+    cmds:
+      - go test -cover -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out | tail -n 1
+
+  lint:
+    desc: Run golangci-lint (mise provides the binary)
+    cmds:
+      - golangci-lint run ./...
+
+  ci:
+    desc: Typical CI sequence (fmt check, vet, test, build)
+    cmds:
+      - test -z "$(gofmt -l .)"
+      - task: vet
+      - task: test
+      - task: build

@@ -1,0 +1,28 @@
+{
+  "dimensions": [
+    { "name": "region", "values": ["EU", "US", "JP"] },
+    { "name": "sku", "values": ["SKU-A", "SKU-B", "SKU-C"] }
+  ],
+  "rules": [
+    {
+      "action": "DENY",
+      "name": "jp-sku-b",
+      "conditions": ["JP", "SKU-B"]
+    },
+    {
+      "action": "ALLOW",
+      "name": "eu-us-a-or-c",
+      "conditions": [["EU", "US"], ["SKU-A", "SKU-C"]]
+    },
+    {
+      "action": "ALLOW",
+      "name": "jp-except-b",
+      "conditions": ["JP", "*"]
+    },
+    {
+      "action": "DENY",
+      "name": "implicit-unlisted",
+      "conditions": ["*", "*"]
+    }
+  ]
+}
