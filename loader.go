@@ -10,20 +10,58 @@ import (
 	"strings"
 )
 
-type fileDoc struct {
-	Dimensions []fileDimension `json:"dimensions"`
-	Rules      []fileRule      `json:"rules"`
+// Config, gorege motorunu ayağa kaldırmak için gereken ham konfigürasyonu
+// temsil eder. Parsing sorumluluğu çağırana aittir; bu struct yalnızca
+// motora veri taşır.
+//
+// YAML veya TOML kullanmak isteyen kullanıcılar kendi projesinde istediği
+// parser kütüphanesini import eder ve veriyi bu struct'a doldurur:
+//
+//	var cfg gorege.Config
+//	yaml.Unmarshal(data, &cfg)          // kendi projenizde
+//	e, _, _ := gorege.NewFromConfig(cfg)
+//
+// gorege kendisi yalnızca encoding/json kullanır.
+type Config struct {
+	Dimensions []DimensionConfig `json:"dimensions" yaml:"dimensions"`
+	Rules      []RuleConfig      `json:"rules"      yaml:"rules"`
 }
 
-type fileDimension struct {
-	Name   string   `json:"name"`
-	Values []string `json:"values"`
+// DimensionConfig, bir dimension eksenini tanımlar.
+// Name boş bırakılırsa anonim dimension (DimValues semantiği) oluşturulur.
+type DimensionConfig struct {
+	Name   string   `json:"name"   yaml:"name"`
+	Values []string `json:"values" yaml:"values"`
 }
 
-type fileRule struct {
-	Action     string `json:"action"`
-	Name       string `json:"name"`
-	Conditions []any  `json:"conditions"`
+// RuleConfig, tek bir kuralı tanımlar. Conditions içindeki her slot şunlardan
+// biri olabilir:
+//   - string       → exact eşleşme veya "*" wildcard
+//   - []any        → AnyOf listesi (encoding/json bu tipi üretir)
+//   - []string     → AnyOf listesi (YAML parser'lar bu tipi üretebilir)
+type RuleConfig struct {
+	Action     string `json:"action"     yaml:"action"`
+	Name       string `json:"name"       yaml:"name"`
+	Conditions []any  `json:"conditions" yaml:"conditions"`
+}
+
+// NewFromConfig, önceden doldurulmuş bir Config'den engine oluşturur.
+// Load / LoadFile ile aynı validation ve analiz adımlarını çalıştırır.
+// Parsing sorumluluğu çağırana aittir.
+//
+// opts, JSON'dan türetilen WithDimensions ve WithRules'tan sonra uygulanır;
+// dolayısıyla WithAnalysisLimit, WithTiebreak gibi seçenekler geçersiz kılınabilir.
+func NewFromConfig(cfg Config, opts ...Option) (*Engine, []Warning, error) {
+	dims, err := dimensionsFromFile(cfg.Dimensions)
+	if err != nil {
+		return nil, nil, err
+	}
+	rules, err := rulesFromFile(cfg.Rules)
+	if err != nil {
+		return nil, nil, err
+	}
+	base := []Option{WithDimensions(dims...), WithRules(rules...)}
+	return New(append(base, opts...)...)
 }
 
 // LoadFile reads a JSON engine definition. The file extension must be .json.
@@ -58,8 +96,7 @@ func Load(r io.Reader) (*Engine, []Warning, error) {
 	return LoadWithOptions(r)
 }
 
-// LoadWithOptions decodes JSON from r and calls [New] with
-// [WithDimensions] and [WithRules] from the document, followed by opts.
+// LoadWithOptions decodes JSON from r into a [Config] and calls [NewFromConfig].
 // Later options override earlier ones for the same setting (e.g. a second
 // [WithDimensions] replaces dimensions from JSON).
 func LoadWithOptions(r io.Reader, opts ...Option) (*Engine, []Warning, error) {
@@ -67,24 +104,14 @@ func LoadWithOptions(r io.Reader, opts ...Option) (*Engine, []Warning, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	var doc fileDoc
-	if err := json.Unmarshal(b, &doc); err != nil {
+	var cfg Config
+	if err := json.Unmarshal(b, &cfg); err != nil {
 		return nil, nil, err
 	}
-	dims, err := dimensionsFromFile(doc.Dimensions)
-	if err != nil {
-		return nil, nil, err
-	}
-	rules, err := rulesFromFile(doc.Rules)
-	if err != nil {
-		return nil, nil, err
-	}
-	base := []Option{WithDimensions(dims...), WithRules(rules...)}
-	all := append(base, opts...)
-	return New(all...)
+	return NewFromConfig(cfg, opts...)
 }
 
-func dimensionsFromFile(in []fileDimension) ([]Dimension, error) {
+func dimensionsFromFile(in []DimensionConfig) ([]Dimension, error) {
 	out := make([]Dimension, 0, len(in))
 	for i, d := range in {
 		if len(d.Values) == 0 {
@@ -100,7 +127,7 @@ func dimensionsFromFile(in []fileDimension) ([]Dimension, error) {
 	return out, nil
 }
 
-func rulesFromFile(in []fileRule) ([]Rule, error) {
+func rulesFromFile(in []RuleConfig) ([]Rule, error) {
 	out := make([]Rule, 0, len(in))
 	for i, r := range in {
 		act, err := parseAction(r.Action)

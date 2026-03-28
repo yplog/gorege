@@ -101,6 +101,23 @@ On `New`, `Load`, or `LoadWithOptions`, the engine reports **warnings** for rule
 
 > **Performance note:** Shadowed-rule analysis walks the Cartesian product of declared dimension values. With large dimension sets (e.g. 6 dimensions × 20 values = 64 000 000 tuples) this can be slow. The default cap is 100 000 tuples for that pass; use `WithAnalysisLimit(n)` with `New` or `LoadWithOptions` / `LoadFileWithOptions` to adjust, or pass a negative value to skip analysis entirely. When the cap is exceeded, dead rules are still reported.
 
+## Bring Your Own Parser
+
+`gorege.Config`, `gorege.DimensionConfig` ve `gorege.RuleConfig` struct'ları dışa açıktır. YAML, TOML veya başka bir formattan engine oluşturmak için kendi parser'ınızı kullanarak bu struct'ları doldurun, ardından `NewFromConfig`'i çağırın:
+
+```go
+import "gopkg.in/yaml.v3" // kendi projenizde, gorege'de bağımlılık değil
+
+var cfg gorege.Config
+if err := yaml.Unmarshal(data, &cfg); err != nil { ... }
+
+e, warnings, err := gorege.NewFromConfig(cfg,
+    gorege.WithAnalysisLimit(50_000),
+)
+```
+
+`gorege` yalnızca `encoding/json` kullanır. `yaml:"..."` tag'leri, gorege'nin kütüphane olarak sıfır runtime bağımlılığı ilkesini korurken sizin tarafınızdan herhangi bir YAML kütüphanesiyle okunabilmesi için mevcuttur.
+
 ## API overview
 
 | Area | Functions |
@@ -108,7 +125,7 @@ On `New`, `Load`, or `LoadWithOptions`, the engine reports **warnings** for rule
 | Build | `New`, `WithDimensions`, `WithRules`, `WithTiebreak`, `WithAnalysisLimit` (shadow analysis tuple cap, default 100 000) |
 | Inspect | `Dimensions`, `Rules` (defensive copies) |
 | Evaluate | `Check`, `PartialCheck`, `Explain` |
-| Nearest allow | `Closest`, `ClosestIn` (tiebreak: leftmost / rightmost / decl order) |
+| Nearest allow | `Closest` — BFS by Hamming distance from the input; **any** dimensions may change until an allowed tuple is found. `ClosestIn` — **only** the selected dimension changes (others fixed); `dim` is an index or dimension name. Tiebreak (`WithTiebreak`): leftmost / rightmost / declaration order affects `Closest` search and reporting. |
 | Config | `LoadFile`, `LoadFileWithOptions`, `Load`, `LoadWithOptions` (`.json` only) |
 | Types | `Dimension`, `Rule`, `Action`, `Explanation`, `ClosestResult`, `Warning`, `WarningKind` |
 
@@ -131,7 +148,7 @@ gorege lint path/to/rules.json                    # warnings on stdout; exit 1 i
 
 `explain` prints `matched`, `allowed`, `rule_index`, `rule_name`, and `action` (or a line for implicit deny when no rule matches). Exit code stays `0` when the explanation was computed successfully.
 
-`closest` / `closest-in` print `found`, `conditions` (JSON array), `distance` (Hamming distance from the input tuple), `dim_index`, `dim_name`, and `value` for the reported pivot dimension. `found: false` uses exit code `1`. For `closest-in`, a numeric-only selector is treated as a dimension index; otherwise it is resolved as a name (same as the library).
+`closest` walks increasing Hamming distance and may change several dimensions at once (`Engine.Closest`). `closest-in` only tries alternate values on one axis (`Engine.ClosestIn`). Both print `found`, `conditions` (JSON array), `distance` (Hamming distance from the input tuple), `dim_index`, `dim_name`, and `value` for the reported pivot dimension. `found: false` uses exit code `1`. For `closest-in`, a numeric-only selector is treated as a dimension index; otherwise it is resolved as a name (same as the library).
 
 ## Development
 

@@ -254,3 +254,122 @@ func TestLoadFileWithOptionsPassesOptions(t *testing.T) {
 		t.Fatalf("expected no warnings, got %v", warnings)
 	}
 }
+
+func TestNewFromConfigRoundTrip(t *testing.T) {
+	t.Parallel()
+	cfg := gorege.Config{
+		Dimensions: []gorege.DimensionConfig{
+			{Name: "role", Values: []string{"admin", "user"}},
+		},
+		Rules: []gorege.RuleConfig{
+			{Action: "ALLOW", Name: "allow-admin", Conditions: []any{"admin"}},
+			{Action: "DENY", Name: "deny-rest", Conditions: []any{"*"}},
+		},
+	}
+	e, warnings, err := gorege.NewFromConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("warnings: %v", warnings)
+	}
+	ok, err := e.Check("admin")
+	if err != nil || !ok {
+		t.Fatalf("Check(admin): ok=%v err=%v", ok, err)
+	}
+	ok, err = e.Check("user")
+	if err != nil || ok {
+		t.Fatalf("Check(user): ok=%v err=%v", ok, err)
+	}
+}
+
+func TestNewFromConfigAnyOfAsStringSlice(t *testing.T) {
+	t.Parallel()
+	cfg := gorege.Config{
+		Dimensions: []gorege.DimensionConfig{
+			{Values: []string{"a", "b", "c"}},
+		},
+		Rules: []gorege.RuleConfig{
+			{Action: "ALLOW", Conditions: []any{[]string{"a", "b"}}},
+			{Action: "DENY", Conditions: []any{"*"}},
+		},
+	}
+	e, _, err := gorege.NewFromConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, err := e.Check("a")
+	if err != nil || !ok {
+		t.Fatalf("Check(a): ok=%v err=%v", ok, err)
+	}
+	ok, err = e.Check("c")
+	if err != nil || ok {
+		t.Fatalf("Check(c): ok=%v err=%v", ok, err)
+	}
+}
+
+func TestNewFromConfigWithOptions(t *testing.T) {
+	t.Parallel()
+	cfg := gorege.Config{
+		Dimensions: []gorege.DimensionConfig{
+			{Values: []string{"a", "b"}},
+		},
+		Rules: []gorege.RuleConfig{
+			{Action: "ALLOW", Conditions: []any{"*"}},
+			{Action: "DENY", Conditions: []any{"a"}},
+		},
+	}
+	_, warnings, err := gorege.NewFromConfig(cfg, gorege.WithAnalysisLimit(-1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no analysis warnings, got %v", warnings)
+	}
+}
+
+func TestNewFromConfigInvalidAction(t *testing.T) {
+	t.Parallel()
+	cfg := gorege.Config{
+		Dimensions: []gorege.DimensionConfig{
+			{Name: "x", Values: []string{"a"}},
+		},
+		Rules: []gorege.RuleConfig{
+			{Action: "MAYBE", Conditions: []any{"*"}},
+		},
+	}
+	_, _, err := gorege.NewFromConfig(cfg)
+	if err == nil || !strings.Contains(err.Error(), "invalid action") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestNewFromConfigUnknownDimensionValue(t *testing.T) {
+	t.Parallel()
+	cfg := gorege.Config{
+		Dimensions: []gorege.DimensionConfig{
+			{Name: "role", Values: []string{"admin", "user"}},
+		},
+		Rules: []gorege.RuleConfig{
+			{Action: "ALLOW", Conditions: []any{"superuser"}},
+		},
+	}
+	_, _, err := gorege.NewFromConfig(cfg)
+	if err == nil || !errors.Is(err, gorege.ErrUnknownDimensionValue) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestNewFromConfigDimensionNoValues(t *testing.T) {
+	t.Parallel()
+	cfg := gorege.Config{
+		Dimensions: []gorege.DimensionConfig{
+			{Name: "x", Values: nil},
+		},
+		Rules: []gorege.RuleConfig{},
+	}
+	_, _, err := gorege.NewFromConfig(cfg)
+	if err == nil || !strings.Contains(err.Error(), "dimension 0") {
+		t.Fatalf("got %v", err)
+	}
+}

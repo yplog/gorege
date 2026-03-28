@@ -120,10 +120,6 @@ func runPartialCheck(args []string) int {
 	for _, w := range warnings {
 		fmt.Fprintln(os.Stderr, "warning:", w.Message)
 	}
-	if len(vals) > len(e.Dimensions()) {
-		fmt.Fprintf(os.Stderr, "gorege partial-check: at most %d dimension values allowed, got %d\n", len(e.Dimensions()), len(vals))
-		return 1
-	}
 	ok, err := e.PartialCheck(vals...)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gorege partial-check:", err)
