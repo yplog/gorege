@@ -24,9 +24,12 @@ const (
 // return a nil pointer.
 type ClosestResult struct {
 	Conditions []string
-	DimIndex   int
-	DimName    string
-	Value      string
+	// Distance is the Hamming distance from the input tuple to Conditions (number
+	// of dimensions whose value differs).
+	Distance int
+	DimIndex int
+	DimName  string
+	Value    string
 }
 
 // Explanation is the outcome of [Engine.Explain] for a full input tuple.

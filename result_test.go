@@ -30,8 +30,18 @@ func TestRuleAction(t *testing.T) {
 
 func TestWarningString(t *testing.T) {
 	t.Parallel()
-	w := gorege.Warning{Message: "x"}
+	w := gorege.Warning{Kind: gorege.WarningKindDead, Message: "x"}
 	if w.String() != "x" {
+		t.Fatal()
+	}
+}
+
+func TestWarningKindString(t *testing.T) {
+	t.Parallel()
+	if gorege.WarningKindDead.String() != "dead" {
+		t.Fatal()
+	}
+	if gorege.WarningKindShadowed.String() != "shadowed" {
 		t.Fatal()
 	}
 }

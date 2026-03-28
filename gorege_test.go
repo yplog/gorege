@@ -35,8 +35,37 @@ func TestWithTiebreakDeclOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	res, err := e.Closest("u", "0")
-	if err != nil || res == nil {
+	if err != nil || res == nil || res.Distance != 1 {
 		t.Fatalf("res=%v err=%v", res, err)
+	}
+}
+
+func TestEngineRulesCopy(t *testing.T) {
+	t.Parallel()
+	e, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(
+			gorege.Allow("a"),
+			gorege.Deny("b"),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rules := e.Rules()
+	if len(rules) != 2 {
+		t.Fatal(len(rules))
+	}
+	if rules[0].Action() != gorege.ActionAllow || rules[0].Name != "" {
+		t.Fatalf("%+v", rules[0])
+	}
+	if rules[1].Action() != gorege.ActionDeny {
+		t.Fatalf("%+v", rules[1])
+	}
+	rules[0] = gorege.Deny("b")
+	rules2 := e.Rules()
+	if rules2[0].Action() != gorege.ActionAllow {
+		t.Fatal("mutating returned slice must not affect engine")
 	}
 }
 

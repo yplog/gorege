@@ -155,6 +155,9 @@ func TestLoadFileExampleFixtures(t *testing.T) {
 				if len(warnings) == 0 {
 					t.Fatal("expected non-empty warnings")
 				}
+				if tc.file == "with-shadow-warnings.json" && warnings[0].Kind != gorege.WarningKindShadowed {
+					t.Fatalf("want shadowed warning, got kind=%v", warnings[0].Kind)
+				}
 			} else if len(warnings) != 0 {
 				t.Fatalf("unexpected warnings: %v", warnings)
 			}

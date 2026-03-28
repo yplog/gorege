@@ -245,6 +245,150 @@ func TestRunExplainMatched(t *testing.T) {
 	}
 }
 
+func TestRunClosestMissingPath(t *testing.T) {
+	if code := runClosest(nil); code != 2 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRunClosestArityMismatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(path, []byte(`{
+  "dimensions": [
+    {"name":"role","values":["u","v"]},
+    {"name":"flag","values":["0","1"]}
+  ],
+  "rules": [
+    {"action":"DENY","conditions":["u","0"]},
+    {"action":"ALLOW","conditions":["*","*"]}
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := runClosest([]string{path, "u"}); code != 2 {
+		t.Fatalf("expected exit 2, got %d", code)
+	}
+}
+
+func TestRunClosestFound(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(path, []byte(`{
+  "dimensions": [
+    {"name":"role","values":["u","v"]},
+    {"name":"flag","values":["0","1"]}
+  ],
+  "rules": [
+    {"action":"DENY","conditions":["u","0"]},
+    {"action":"ALLOW","conditions":["*","*"]}
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldOut := os.Stdout
+	os.Stdout = wOut
+	code := runClosest([]string{path, "u", "0"})
+	mustClose(t, wOut)
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(rOut); err != nil {
+		t.Fatal(err)
+	}
+	mustClose(t, rOut)
+	os.Stdout = oldOut
+	if code != 0 {
+		t.Fatalf("code=%d out=%q", code, buf.String())
+	}
+	out := buf.String()
+	if !strings.Contains(out, "found: true") || !strings.Contains(out, "distance: 1") || !strings.Contains(out, "dim_index:") {
+		t.Fatalf("stdout=%q", out)
+	}
+}
+
+func TestRunClosestNotFound(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(path, []byte(`{
+  "dimensions": [{"name":"x","values":["a"]}],
+  "rules": [{"action":"DENY","conditions":["*"]}]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldOut := os.Stdout
+	os.Stdout = wOut
+	code := runClosest([]string{path, "a"})
+	mustClose(t, wOut)
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(rOut); err != nil {
+		t.Fatal(err)
+	}
+	mustClose(t, rOut)
+	os.Stdout = oldOut
+	if code != 1 {
+		t.Fatalf("code=%d out=%q", code, buf.String())
+	}
+	if !strings.Contains(buf.String(), "found: false") {
+		t.Fatalf("stdout=%q", buf.String())
+	}
+}
+
+func TestRunClosestInMissingArgs(t *testing.T) {
+	if code := runClosestIn([]string{"x.json"}); code != 2 {
+		t.Fatalf("code=%d", code)
+	}
+	if code := runClosestIn(nil); code != 2 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRunClosestInByIndexAndName(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(path, []byte(`{
+  "dimensions": [
+    {"name":"role","values":["u","v"]},
+    {"name":"flag","values":["0","1"]}
+  ],
+  "rules": [
+    {"action":"DENY","conditions":["u","0"]},
+    {"action":"ALLOW","conditions":["*","*"]}
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, dimArg := range []string{"1", "flag"} {
+		rOut, wOut, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		oldOut := os.Stdout
+		os.Stdout = wOut
+		code := runClosestIn([]string{path, dimArg, "u", "0"})
+		mustClose(t, wOut)
+		var buf bytes.Buffer
+		if _, err := buf.ReadFrom(rOut); err != nil {
+			t.Fatal(err)
+		}
+		mustClose(t, rOut)
+		os.Stdout = oldOut
+		if code != 0 {
+			t.Fatalf("dim=%q code=%d out=%q", dimArg, code, buf.String())
+		}
+		out := buf.String()
+		if !strings.Contains(out, "found: true") || !strings.Contains(out, "distance: 1") || !strings.Contains(out, `"1"`) {
+			t.Fatalf("dim=%q stdout=%q", dimArg, out)
+		}
+	}
+}
+
 func TestRunExplainImplicitDeny(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "rules.json")

@@ -2,6 +2,7 @@ version: "3"
 
 vars:
   GOFLAGS: ""
+  FUZZTIME: 5s
 
 tasks:
   default:
@@ -44,6 +45,19 @@ tasks:
     desc: Run tests with the race detector
     cmds:
       - go test -race ./...
+
+  fuzz-load:
+    desc: Fuzz JSON Load (e.g. task fuzz-load FUZZTIME=30s)
+    cmds:
+      - go test -fuzz=FuzzLoad -fuzztime={{.FUZZTIME}} .
+
+  fuzz-check:
+    desc: Fuzz Check/PartialCheck/Explain/Closest on fixed engine
+    cmds:
+      - go test -fuzz=FuzzCheckTwoDims -fuzztime={{.FUZZTIME}} .
+      - go test -fuzz=FuzzPartialCheckTwoDims -fuzztime={{.FUZZTIME}} .
+      - go test -fuzz=FuzzExplainTwoDims -fuzztime={{.FUZZTIME}} .
+      - go test -fuzz=FuzzClosestTwoDims -fuzztime={{.FUZZTIME}} .
 
   cover:
     desc: Run tests with coverage summary (per package + merged total)

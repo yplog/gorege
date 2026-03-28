@@ -57,6 +57,7 @@ func (e *Engine) ClosestIn(dim any, values ...string) (*ClosestResult, error) {
 		}
 		return &ClosestResult{
 			Conditions: cand,
+			Distance:   hammingDistance(input, cand),
 			DimIndex:   di,
 			DimName:    d.name,
 			Value:      v,
@@ -162,10 +163,24 @@ func buildClosestResult(e *Engine, input, candidate []string, subset []int) *Clo
 	d := e.dims[primary]
 	return &ClosestResult{
 		Conditions: append([]string(nil), candidate...),
+		Distance:   hammingDistance(input, candidate),
 		DimIndex:   primary,
 		DimName:    d.name,
 		Value:      candidate[primary],
 	}
+}
+
+func hammingDistance(a, b []string) int {
+	if len(a) != len(b) {
+		panic("gorege: hammingDistance: length mismatch")
+	}
+	n := 0
+	for i := range a {
+		if a[i] != b[i] {
+			n++
+		}
+	}
+	return n
 }
 
 func pickPrimaryDim(diffs []int, tb TiebreakStrategy) int {

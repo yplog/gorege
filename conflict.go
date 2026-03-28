@@ -2,8 +2,33 @@ package gorege
 
 import "strconv"
 
+// WarningKind classifies a [Warning] from rule analysis.
+type WarningKind int
+
+const (
+	// WarningKindDead means the rule never matches any tuple in the dimension
+	// Cartesian product.
+	WarningKindDead WarningKind = iota
+	// WarningKindShadowed means the rule matches some tuple but never wins
+	// first-match against earlier rules.
+	WarningKindShadowed
+)
+
+// String implements [fmt.Stringer] for [WarningKind].
+func (k WarningKind) String() string {
+	switch k {
+	case WarningKindDead:
+		return "dead"
+	case WarningKindShadowed:
+		return "shadowed"
+	default:
+		return "WarningKind(" + strconv.Itoa(int(k)) + ")"
+	}
+}
+
 // Warning describes a non-fatal issue detected at engine construction time.
 type Warning struct {
+	Kind    WarningKind
 	Message string
 }
 
@@ -37,10 +62,12 @@ func ruleWarnings(dims []Dimension, rules []Rule) []Warning {
 		switch {
 		case !matches[j]:
 			out = append(out, Warning{
+				Kind:    WarningKindDead,
 				Message: "dead rule " + label + ": never matches any tuple in the dimension product",
 			})
 		case !wins[j]:
 			out = append(out, Warning{
+				Kind:    WarningKindShadowed,
 				Message: "shadowed rule " + label + ": never wins first-match against earlier rules",
 			})
 		}

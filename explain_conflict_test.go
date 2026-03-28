@@ -93,6 +93,9 @@ func TestShadowedRuleWarning(t *testing.T) {
 	if len(warnings) != 1 {
 		t.Fatalf("expected 1 warning, got %v", warnings)
 	}
+	if warnings[0].Kind != gorege.WarningKindShadowed {
+		t.Fatalf("kind=%v want shadowed", warnings[0].Kind)
+	}
 }
 
 func TestDeadRuleWarning(t *testing.T) {
@@ -109,7 +112,7 @@ func TestDeadRuleWarning(t *testing.T) {
 	}
 	found := false
 	for _, w := range warnings {
-		if len(w.Message) >= 4 && w.Message[:4] == "dead" {
+		if w.Kind == gorege.WarningKindDead {
 			found = true
 		}
 	}

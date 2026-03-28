@@ -131,3 +131,10 @@ func validateMatcher(m matcher, dim Dimension, dimKnown bool, ruleIdx, dimIdx in
 func (e *Engine) Dimensions() []Dimension {
 	return cloneDimensions(e.dims)
 }
+
+// Rules returns the rules in first-match order (defensive copy). Matchers are
+// not exported; use [Rule.Name] and [Rule.Action] for inspection, or rebuild
+// logic via [Engine.Check] / [Engine.Explain].
+func (e *Engine) Rules() []Rule {
+	return cloneRules(e.rules)
+}

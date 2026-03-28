@@ -97,17 +97,18 @@ Evaluation is **first match wins**. If nothing matches, `Check` returns `false`.
 - A JSON array of strings in a slot is `AnyOf`.
 - Omit `name` on a dimension to get an anonymous axis (`DimValues`-style).
 
-On `New` / `Load`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”).
+On `New` / `Load`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”). Each `Warning` includes `Kind` (`WarningKindDead` or `WarningKindShadowed`) so callers need not parse `Message`.
 
 ## API overview
 
 | Area | Functions |
 |------|-----------|
 | Build | `New`, `WithDimensions`, `WithRules`, `WithTiebreak` |
+| Inspect | `Dimensions`, `Rules` (defensive copies) |
 | Evaluate | `Check`, `PartialCheck`, `Explain` |
 | Nearest allow | `Closest`, `ClosestIn` (tiebreak: leftmost / rightmost / decl order) |
 | Config | `LoadFile` (`.json` only), `Load` |
-| Types | `Dimension`, `Rule`, `Action`, `Explanation`, `ClosestResult`, `Warning` |
+| Types | `Dimension`, `Rule`, `Action`, `Explanation`, `ClosestResult`, `Warning`, `WarningKind` |
 
 `Engine` is immutable and safe to share. For hot reload, load a new engine and swap a `sync/atomic.Pointer` holding `*gorege.Engine`.
 
@@ -119,10 +120,15 @@ go install github.com/yplog/gorege/cmd/gorege@latest
 
 gorege check path/to/rules.json Guest Wed Sauna   # prints true/false; exit 1 if denied or error
 gorege explain path/to/rules.json Guest Wed Sauna # which rule matched (debug); exit 1 on load/arity error only
+gorege closest path/to/rules.json Guest Wed Sauna # nearest allowed tuple (BFS); exit 1 if none exists
+gorege closest-in path/to/rules.json 2 Guest Wed Sauna   # same, varying only dim index 2
+gorege closest-in path/to/rules.json facility Guest Wed Sauna # or dimension name
 gorege lint path/to/rules.json                    # prints warnings; exit 1 if any
 ```
 
 `explain` prints `matched`, `allowed`, `rule_index`, `rule_name`, and `action` (or a line for implicit deny when no rule matches). Exit code stays `0` when the explanation was computed successfully.
+
+`closest` / `closest-in` print `found`, `conditions` (JSON array), `distance` (Hamming distance from the input tuple), `dim_index`, `dim_name`, and `value` for the reported pivot dimension. `found: false` uses exit code `1`. For `closest-in`, a numeric-only selector is treated as a dimension index; otherwise it is resolved as a name (same as the library).
 
 ## Development
 
@@ -134,6 +140,9 @@ This repo uses **[mise](https://mise.jdx.dev/)** for pinned Go (see `mise.toml`)
 | `task cover` | Coverage (profile + merged summary line) |
 | `task build-cli` | Build `bin/gorege` |
 | `task ci` | `gofmt`, `vet`, `test`, `build` |
+| `task fuzz-load` / `task fuzz-check` | Go fuzz (default 5s; e.g. `task fuzz-load FUZZTIME=30s`) |
+
+Fuzz targets live in `fuzz_test.go`. Normal `go test` runs each fuzz function once with its seed corpus; use `-fuzz=FuzzLoad` (etc.) for real fuzzing.
 
 ## Layout
 
@@ -147,5 +156,6 @@ conflict.go  Dead / shadow warnings
 loader.go    JSON Load / LoadFile
 result.go    Explanation, ClosestResult, Action helpers
 cmd/gorege   CLI
+fuzz_test.go Go fuzz targets (Load, Check, …)
 testdata/    Example JSON fixtures
 ```
