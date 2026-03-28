@@ -144,7 +144,6 @@ func TestLoadFileExampleFixtures(t *testing.T) {
 		{"with-shadow-warnings.json", []string{"acme"}, true, true},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.file+"/"+strings.Join(tc.check, ","), func(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join("testdata", tc.file)

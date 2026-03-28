@@ -64,7 +64,7 @@ func (e *Engine) eval(values []string, partial bool) (allowed bool, matched bool
 }
 
 func ruleMatches(r Rule, dims []Dimension, dimCount int, values []string, partial bool) bool {
-	for i := 0; i < dimCount; i++ {
+	for i := range dimCount {
 		var m matcher
 		if i < len(r.m) {
 			m = r.m[i]
