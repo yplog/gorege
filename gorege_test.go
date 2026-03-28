@@ -103,8 +103,47 @@ func TestAnalysisLimitExceeded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(warnings) != 1 || warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded {
+	var hasLimit bool
+	for _, w := range warnings {
+		if w.Kind == gorege.WarningKindAnalysisLimitExceeded {
+			hasLimit = true
+		}
+	}
+	if !hasLimit {
 		t.Fatalf("expected AnalysisLimitExceeded warning, got %v", warnings)
+	}
+}
+
+func TestDeadRuleDetectedEvenWhenLimitExceeded(t *testing.T) {
+	t.Parallel()
+	// Product 3×3 > limit 1; empty AnyOf validates but never matches (dead).
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(1),
+		gorege.WithDimensions(
+			gorege.DimValues("a", "b", "c"),
+			gorege.DimValues("x", "y", "z"),
+		),
+		gorege.WithRules(
+			gorege.Allow(gorege.Wildcard, gorege.AnyOf()),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hasDead, hasLimit bool
+	for _, w := range warnings {
+		switch w.Kind {
+		case gorege.WarningKindDead:
+			hasDead = true
+		case gorege.WarningKindAnalysisLimitExceeded:
+			hasLimit = true
+		}
+	}
+	if !hasDead {
+		t.Fatalf("expected dead warning even when limit exceeded, got %v", warnings)
+	}
+	if !hasLimit {
+		t.Fatalf("expected limit warning, got %v", warnings)
 	}
 }
 

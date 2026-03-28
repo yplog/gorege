@@ -3,8 +3,8 @@ package gorege
 import "errors"
 
 // DefaultAnalysisLimit is the default upper bound on the number of dimension
-// tuples considered when [New] runs dead/shadowed rule analysis. Use
-// [WithAnalysisLimit] to change this cap.
+// tuples enumerated for shadowed-rule analysis in [New]. Dead-rule detection
+// does not use this cap. Use [WithAnalysisLimit] to change the threshold.
 const DefaultAnalysisLimit = 100_000
 
 var (

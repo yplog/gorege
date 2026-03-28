@@ -97,15 +97,15 @@ Evaluation is **first match wins**. If nothing matches, `Check` returns `false`.
 - A JSON array of strings in a slot is `AnyOf`.
 - Omit `name` on a dimension to get an anonymous axis (`DimValues`-style).
 
-On `New`, `Load`, or `LoadWithOptions`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
+On `New`, `Load`, or `LoadWithOptions`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Dead detection does not enumerate the product; shadow detection does, subject to a tuple cap. Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
 
-> **Performance note:** Rule analysis runs over the Cartesian product of all declared dimension values. With large dimension sets (e.g. 6 dimensions × 20 values = 64 000 000 tuples) this can be slow. The default cap is 100 000 tuples; use `WithAnalysisLimit(n)` with `New` or `LoadWithOptions` / `LoadFileWithOptions` to adjust, or pass a negative value to skip analysis entirely.
+> **Performance note:** Shadowed-rule analysis walks the Cartesian product of declared dimension values. With large dimension sets (e.g. 6 dimensions × 20 values = 64 000 000 tuples) this can be slow. The default cap is 100 000 tuples for that pass; use `WithAnalysisLimit(n)` with `New` or `LoadWithOptions` / `LoadFileWithOptions` to adjust, or pass a negative value to skip analysis entirely. When the cap is exceeded, dead rules are still reported.
 
 ## API overview
 
 | Area | Functions |
 |------|-----------|
-| Build | `New`, `WithDimensions`, `WithRules`, `WithTiebreak`, `WithAnalysisLimit` (rule analysis tuple cap, default 100 000) |
+| Build | `New`, `WithDimensions`, `WithRules`, `WithTiebreak`, `WithAnalysisLimit` (shadow analysis tuple cap, default 100 000) |
 | Inspect | `Dimensions`, `Rules` (defensive copies) |
 | Evaluate | `Check`, `PartialCheck`, `Explain` |
 | Nearest allow | `Closest`, `ClosestIn` (tiebreak: leftmost / rightmost / decl order) |

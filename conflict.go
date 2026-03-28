@@ -12,8 +12,9 @@ const (
 	// WarningKindShadowed means the rule matches some tuple but never wins
 	// first-match against earlier rules.
 	WarningKindShadowed
-	// WarningKindAnalysisLimitExceeded means dead/shadowed analysis was skipped
-	// because the dimension value product exceeded the configured limit.
+	// WarningKindAnalysisLimitExceeded means shadowed-rule analysis (Cartesian
+	// enumeration) was skipped because the dimension value product exceeded the
+	// configured limit. Dead-rule detection still runs without this cap.
 	WarningKindAnalysisLimitExceeded
 )
 
@@ -55,7 +56,52 @@ func tupleCount(dims []Dimension, limit int64) int64 {
 	return total
 }
 
-func ruleWarnings(dims []Dimension, rules []Rule) []Warning {
+// effectiveValues returns dimension values a matcher can match against dim.
+// It returns nil when the matcher can never match any declared value (empty set).
+func effectiveValues(m matcher, dim Dimension) []string {
+	switch m.kind {
+	case mWildcard:
+		return dim.values
+	case mExact:
+		if dim.contains(m.exact) {
+			return []string{m.exact}
+		}
+		return nil
+	case mAnyOf:
+		out := make([]string, 0, len(m.anyof))
+		for _, v := range m.anyof {
+			if dim.contains(v) {
+				out = append(out, v)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+// isDeadRule reports whether r can never match any tuple in the dimension product.
+// A rule is dead if some dimension has no declared values or that dimension's
+// effective value set for the rule is empty.
+func isDeadRule(r Rule, dims []Dimension) bool {
+	for i, dim := range dims {
+		var m matcher
+		if i < len(r.m) {
+			m = r.m[i]
+		} else {
+			m = matcher{kind: mWildcard}
+		}
+		if len(dim.values) == 0 {
+			return true
+		}
+		if len(effectiveValues(m, dim)) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func shadowWarnings(dims []Dimension, rules []Rule, deadMask []bool) []Warning {
 	tuples := cartesianProduct(dims)
 	n := len(rules)
 	if n == 0 {
@@ -67,6 +113,9 @@ func ruleWarnings(dims []Dimension, rules []Rule) []Warning {
 	for _, tup := range tuples {
 		fm := -1
 		for j, r := range rules {
+			if deadMask[j] {
+				continue
+			}
 			if ruleMatches(r, dims, d, tup, false) {
 				matches[j] = true
 				if fm < 0 {
@@ -80,15 +129,12 @@ func ruleWarnings(dims []Dimension, rules []Rule) []Warning {
 	}
 	var out []Warning
 	for j := range rules {
+		if deadMask[j] {
+			continue
+		}
 		r := rules[j]
 		label := ruleWarningLabel(j, r)
-		switch {
-		case !matches[j]:
-			out = append(out, Warning{
-				Kind:    WarningKindDead,
-				Message: "dead rule " + label + ": never matches any tuple in the dimension product",
-			})
-		case !wins[j]:
+		if !wins[j] {
 			out = append(out, Warning{
 				Kind:    WarningKindShadowed,
 				Message: "shadowed rule " + label + ": never wins first-match against earlier rules",
