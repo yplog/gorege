@@ -72,7 +72,7 @@ Each rule is **ALLOW** or **DENY** plus one matcher per dimension (in order):
 
 Evaluation is **first match wins**. If nothing matches, `Check` returns `false`. Shorter rules implicitly wildcard trailing dimensions.
 
-`Check` requires exactly as many arguments as dimensions (`ErrArityMismatch` otherwise). `PartialCheck` allows a prefix tuple (Recht-style trailing “unconstrained” behaviour).
+`Check` requires exactly as many arguments as dimensions (`ErrArityMismatch` otherwise). `PartialCheck` allows a prefix tuple (Recht-style trailing “unconstrained” behaviour) and returns `(bool, error)`: if you pass **more** values than dimensions you get `ErrArityMismatch` instead of a bare `false`, so overload is not mistaken for denial.
 
 ## JSON config
 

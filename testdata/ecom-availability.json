@@ -1,4 +1,10 @@
 {
+  "__fixture_notes": [
+    "US + SKU-B -> Check is false (see loader_test TestLoadFileExampleFixtures).",
+    "Rule eu-us-a-or-c matches only (EU|US) x (SKU-A|SKU-C). US is fine but SKU-B is not in {SKU-A, SKU-C}, so that ALLOW does not apply.",
+    "Rule jp-except-b matches only when region is JP; US/SKU-B does not match.",
+    "Catch-all implicit-unlisted is DENY * * and wins first-match for US/SKU-B."
+  ],
   "dimensions": [
     { "name": "region", "values": ["EU", "US", "JP"] },
     { "name": "sku", "values": ["SKU-A", "SKU-B", "SKU-C"] }

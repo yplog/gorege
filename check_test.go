@@ -151,11 +151,13 @@ func TestPartialCheckTrailingUnconstrained(t *testing.T) {
 	}
 	// Deny("Guest","Mon") does not match PartialCheck("Guest"): dim1 absent fails a non-wildcard DENY slot.
 	// Next rule Allow(*,*) matches, so the result is true.
-	if !e.PartialCheck("Guest") {
-		t.Fatal("expected true once catch-all ALLOW runs")
+	ok, err := e.PartialCheck("Guest")
+	if err != nil || !ok {
+		t.Fatalf("Guest: ok=%v err=%v", ok, err)
 	}
-	if !e.PartialCheck("Gold") {
-		t.Fatal("expected true for Gold with trailing unconstrained")
+	ok, err = e.PartialCheck("Gold")
+	if err != nil || !ok {
+		t.Fatalf("Gold: ok=%v err=%v", ok, err)
 	}
 
 	e2, _, err := gorege.New(
@@ -170,8 +172,9 @@ func TestPartialCheckTrailingUnconstrained(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if e2.PartialCheck("Guest") {
-		t.Fatal("expected false when DENY cannot bind trailing dim and no other rule matches")
+	ok, err = e2.PartialCheck("Guest")
+	if err != nil || ok {
+		t.Fatalf("expected false when DENY cannot bind trailing dim and no other rule matches: ok=%v err=%v", ok, err)
 	}
 }
 
@@ -195,7 +198,11 @@ func TestPartialCheckTooManyValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if e.PartialCheck("a", "b") {
-		t.Fatal("expected false when more values than dimensions")
+	ok, err := e.PartialCheck("a", "b")
+	if !errors.Is(err, gorege.ErrArityMismatch) {
+		t.Fatalf("expected ErrArityMismatch, got ok=%v err=%v", ok, err)
+	}
+	if ok {
+		t.Fatal("expected ok false with arity error")
 	}
 }

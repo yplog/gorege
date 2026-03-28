@@ -15,7 +15,7 @@ var (
 	ErrUnknownDimensionValue = errors.New("gorege: matcher references unknown dimension value")
 
 	// ErrInvalidDimension is returned by [Engine.ClosestIn] when dim is not a
-	// valid index or known dimension name.
+	// valid index (int-sized signed/unsigned types) or a known dimension name.
 	ErrInvalidDimension = errors.New("gorege: invalid dimension selector")
 
 	// ErrUnsupportedConfigFormat is returned by [LoadFile] when the path does not end in .json.

@@ -113,7 +113,7 @@ func TestClosestTiebreakRightmost(t *testing.T) {
 	}
 }
 
-func TestClosestInInt32AndInt64(t *testing.T) {
+func TestClosestInNumericIndices(t *testing.T) {
 	t.Parallel()
 	e, _, err := gorege.New(
 		gorege.WithDimensions(
@@ -128,13 +128,13 @@ func TestClosestInInt32AndInt64(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := e.ClosestIn(int32(1), "u", "0")
-	if err != nil || res == nil {
-		t.Fatalf("int32: res=%v err=%v", res, err)
-	}
-	res2, err := e.ClosestIn(int64(1), "u", "0")
-	if err != nil || res2 == nil {
-		t.Fatalf("int64: res=%v err=%v", res2, err)
+	for _, dim := range []any{
+		int32(1), int64(1), uint(1), uint32(1), uint64(1),
+	} {
+		res, err := e.ClosestIn(dim, "u", "0")
+		if err != nil || res == nil || res.Value != "1" {
+			t.Fatalf("%T(1): res=%v err=%v", dim, res, err)
+		}
 	}
 }
 
@@ -162,6 +162,10 @@ func TestClosestInInvalidSelector(t *testing.T) {
 	_, err = e.ClosestIn(-1, "a")
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	_, err = e.ClosestIn(uint(1), "a")
+	if err == nil {
+		t.Fatal("expected error for uint index out of range")
 	}
 }
 

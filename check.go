@@ -40,14 +40,17 @@ func (e *Engine) Check(values ...string) (bool, error) {
 // PartialCheck allows a shorter input prefix. Trailing dimensions are
 // unconstrained: a matcher at those positions is treated as satisfied for
 // ALLOW rules and as failed for DENY rules (Recht-style behaviour).
-func (e *Engine) PartialCheck(values ...string) bool {
+//
+// If len(values) is greater than the number of dimensions, it returns
+// [ErrArityMismatch] so misuse is not conflated with an implicit deny (false, nil).
+func (e *Engine) PartialCheck(values ...string) (bool, error) {
 	if len(values) > len(e.dims) {
-		return false
+		return false, ErrArityMismatch
 	}
 	if ok, matched := e.eval(values, true); matched {
-		return ok
+		return ok, nil
 	}
-	return false
+	return false, nil
 }
 
 func (e *Engine) eval(values []string, partial bool) (allowed bool, matched bool) {

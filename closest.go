@@ -25,9 +25,10 @@ func (e *Engine) Closest(values ...string) (*ClosestResult, error) {
 	return nil, nil
 }
 
-// ClosestIn restricts the search to a single dimension. dim may be an index
-// (int) or a non-empty dimension name (string). Returns nil when no value in
-// that dimension yields an allowed tuple.
+// ClosestIn restricts the search to a single dimension. dim may be a
+// dimension index (int, int32, int64, uint, uint32, uint64) or a non-empty
+// dimension name (string). Returns nil when no value in that dimension yields
+// an allowed tuple.
 func (e *Engine) ClosestIn(dim any, values ...string) (*ClosestResult, error) {
 	if len(values) != len(e.dims) {
 		return nil, ErrArityMismatch
@@ -78,6 +79,21 @@ func (e *Engine) resolveDim(dim any) (int, error) {
 		return int(x), nil
 	case int64:
 		if int(x) < 0 || int(x) >= len(e.dims) {
+			return 0, ErrInvalidDimension
+		}
+		return int(x), nil
+	case uint:
+		if uint64(x) >= uint64(len(e.dims)) {
+			return 0, ErrInvalidDimension
+		}
+		return int(x), nil
+	case uint32:
+		if uint64(x) >= uint64(len(e.dims)) {
+			return 0, ErrInvalidDimension
+		}
+		return int(x), nil
+	case uint64:
+		if x >= uint64(len(e.dims)) {
 			return 0, ErrInvalidDimension
 		}
 		return int(x), nil
@@ -181,7 +197,7 @@ func combinations(n, k int, tb TiebreakStrategy) [][]int {
 	switch tb {
 	case TiebreakRightmostDim:
 		slices.SortFunc(out, func(a, b []int) int {
-			ma, mb := maxIntSlice(a), maxIntSlice(b)
+			ma, mb := maxOrZero(a), maxOrZero(b)
 			if ma != mb {
 				return mb - ma
 			}
@@ -206,12 +222,11 @@ func combinations(n, k int, tb TiebreakStrategy) [][]int {
 	return out
 }
 
-func maxIntSlice(s []int) int {
-	m := s[0]
-	for _, v := range s[1:] {
-		if v > m {
-			m = v
-		}
+// maxOrZero uses [slices.Max] for non-empty slices; empty returns 0 so sort
+// comparators never panic (e.g. k==0 combinations).
+func maxOrZero(s []int) int {
+	if len(s) == 0 {
+		return 0
 	}
-	return m
+	return slices.Max(s)
 }
