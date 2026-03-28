@@ -54,6 +54,8 @@ func TestRealMainDispatchesSubcommands(t *testing.T) {
 		{[]string{"gorege", "closest", path, "u", "0"}, 0},
 		{[]string{"gorege", "closest-in", path, "1", "u", "0"}, 0},
 		{[]string{"gorege", "lint", simple}, 0},
+		{[]string{"gorege", "partial-check", path}, 0},
+		{[]string{"gorege", "partial-check", simple, "a"}, 0},
 	}
 	for _, tc := range cases {
 		rOut, wOut, err := os.Pipe()
@@ -104,6 +106,86 @@ func TestRunCheckArityError(t *testing.T) {
 	}
 	if code := runCheck([]string{path}); code != 1 {
 		t.Fatalf("expected arity error exit 1, got %d", code)
+	}
+}
+
+func TestRunPartialCheckMissingPath(t *testing.T) {
+	if code := runPartialCheck(nil); code != 2 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRunPartialCheckLoadError(t *testing.T) {
+	if code := runPartialCheck([]string{"/nonexistent/gorege-partial-check-xyz.json"}); code != 1 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRunPartialCheckTooManyValues(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(path, []byte(`{
+  "dimensions": [
+    {"name":"role","values":["u","v"]},
+    {"name":"flag","values":["0","1"]}
+  ],
+  "rules": [{"action":"ALLOW","conditions":["*","*"]}]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := runPartialCheck([]string{path, "u", "0", "extra"}); code != 1 {
+		t.Fatalf("expected exit 1 for too many values, got %d", code)
+	}
+}
+
+func TestRunPartialCheckOKEmptyPrefix(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(path, []byte(`{
+  "dimensions": [
+    {"name":"role","values":["u","v"]},
+    {"name":"flag","values":["0","1"]}
+  ],
+  "rules": [
+    {"action":"DENY","conditions":["u","0"]},
+    {"action":"ALLOW","conditions":["*","*"]}
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	code := runPartialCheck([]string{path})
+	mustClose(t, w)
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatal(err)
+	}
+	mustClose(t, r)
+	os.Stdout = old
+	if code != 0 {
+		t.Fatalf("code=%d", code)
+	}
+	if strings.TrimSpace(buf.String()) != "true" {
+		t.Fatalf("stdout=%q", buf.String())
+	}
+}
+
+func TestRunPartialCheckFalseExit1(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(path, []byte(`{
+  "dimensions": [{"name":"x","values":["a","b"]}],
+  "rules": [{"action":"DENY","conditions":["a"]}]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := runPartialCheck([]string{path}); code != 1 {
+		t.Fatalf("expected exit 1 when no completion can be allowed, got %d", code)
 	}
 }
 

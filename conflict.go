@@ -108,7 +108,6 @@ func shadowWarnings(dims []Dimension, rules []Rule, deadMask []bool) []Warning {
 		return nil
 	}
 	wins := make([]bool, n)
-	matches := make([]bool, n)
 	d := len(dims)
 	for _, tup := range tuples {
 		fm := -1
@@ -117,7 +116,6 @@ func shadowWarnings(dims []Dimension, rules []Rule, deadMask []bool) []Warning {
 				continue
 			}
 			if ruleMatches(r, dims, d, tup, false) {
-				matches[j] = true
 				if fm < 0 {
 					fm = j
 				}

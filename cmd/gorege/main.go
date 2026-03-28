@@ -29,6 +29,8 @@ func realMain(args []string) int {
 		return runClosestIn(args[2:])
 	case "lint":
 		return runLint(args[2:])
+	case "partial-check":
+		return runPartialCheck(args[2:])
 	default:
 		usage()
 		return 2
@@ -41,6 +43,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "       gorege closest <config.json> <dim values...>")
 	fmt.Fprintln(os.Stderr, "       gorege closest-in <config.json> <dim-index-or-name> <dim values...>")
 	fmt.Fprintln(os.Stderr, "       gorege lint <config.json>")
+	fmt.Fprintln(os.Stderr, "       gorege partial-check <config.json> [<dim values...>]")
 }
 
 func runCheck(args []string) int {
@@ -98,6 +101,37 @@ func runExplain(args []string) int {
 		fmt.Printf("action: %s\n", x.Action.String())
 	} else {
 		fmt.Println("action: (implicit deny, no rule matched)")
+	}
+	return 0
+}
+
+func runPartialCheck(args []string) int {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "gorege partial-check: missing config path")
+		return 2
+	}
+	path := args[0]
+	vals := args[1:]
+	e, warnings, err := gorege.LoadFile(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "gorege partial-check:", err)
+		return 1
+	}
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, "warning:", w.Message)
+	}
+	if len(vals) > len(e.Dimensions()) {
+		fmt.Fprintf(os.Stderr, "gorege partial-check: at most %d dimension values allowed, got %d\n", len(e.Dimensions()), len(vals))
+		return 1
+	}
+	ok, err := e.PartialCheck(vals...)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "gorege partial-check:", err)
+		return 1
+	}
+	fmt.Println(ok)
+	if !ok {
+		return 1
 	}
 	return 0
 }

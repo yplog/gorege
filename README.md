@@ -121,6 +121,7 @@ go install github.com/yplog/gorege/cmd/gorege@latest
 # or: task build-cli  → ./bin/gorege
 
 gorege check path/to/rules.json Guest Wed Sauna   # prints true/false; exit 1 if denied or error
+gorege partial-check path/to/rules.json Guest     # prefix [Engine.PartialCheck]: 0..N values (N = #dims); true if some completion could still be allowed
 gorege explain path/to/rules.json Guest Wed Sauna # which rule matched (debug); exit 1 on load/arity error only
 gorege closest path/to/rules.json Guest Wed Sauna # nearest allowed tuple (BFS); exit 1 if none exists
 gorege closest-in path/to/rules.json 2 Guest Wed Sauna   # same, varying only dim index 2
