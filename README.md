@@ -6,7 +6,7 @@ Design goals: idiomatic Go, immutable engines safe for concurrent use, explicit 
 
 - **Go 1.26+**
 - **Zero runtime dependencies** (standard library only)
-- **JSON** configuration via `Load` / `LoadFile` / `LoadWithOptions` / `LoadFileWithOptions` (`.json` only)
+- **JSON** configuration via `Load` / `LoadWithOptions` / `LoadFileWithOptions` (`.json` only)
 
 ## Install
 
@@ -76,7 +76,7 @@ Evaluation is **first match wins**. If nothing matches, `Check` returns `false`.
 
 ## JSON config
 
-`LoadFile`, `LoadFileWithOptions`, `Load`, and `LoadWithOptions` decode the same schema. Extra options (for example `WithAnalysisLimit`) apply after the JSON-derived dimensions and rules. Example (see also `testdata/rules.json`):
+`LoadFileWithOptions`, `Load`, and `LoadWithOptions` decode the same schema (call `LoadFileWithOptions(path)` with no extra options for a plain file load). Extra options (for example `WithAnalysisLimit`) apply after the JSON-derived dimensions and rules. Example (see also `testdata/rules.json`):
 
 ```json
 {
@@ -97,7 +97,7 @@ Evaluation is **first match wins**. If nothing matches, `Check` returns `false`.
 - A JSON array of strings in a slot is `AnyOf`.
 - Omit `name` on a dimension to get an anonymous axis (`DimValues`-style).
 
-On `New`, `Load`, or `LoadWithOptions`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Dead detection does not enumerate the product; shadow detection does, subject to a tuple cap. Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
+On `New`, `Load`, `LoadWithOptions`, or `LoadFileWithOptions`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Dead detection does not enumerate the product; shadow detection does, subject to a tuple cap. Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
 
 > **Performance note:** Shadowed-rule analysis walks the Cartesian product of declared dimension values. With large dimension sets (e.g. 6 dimensions × 20 values = 64 000 000 tuples) this can be slow. The default cap is 100 000 tuples for that pass; use `WithAnalysisLimit(n)` with `New` or `LoadWithOptions` / `LoadFileWithOptions` to adjust, or pass a negative value to skip analysis entirely. When the cap is exceeded, dead rules are still reported.
 
@@ -126,7 +126,7 @@ e, warnings, err := gorege.NewFromConfig(cfg,
 | Inspect | `Dimensions`, `Rules` (defensive copies) |
 | Evaluate | `Check`, `PartialCheck`, `Explain` |
 | Nearest allow | `Closest` — BFS by Hamming distance from the input; **any** dimensions may change until an allowed tuple is found. `ClosestIn` — **only** the selected dimension changes (others fixed); `dim` is an index or dimension name. Tiebreak (`WithTiebreak`): leftmost / rightmost / declaration order affects `Closest` search and reporting. |
-| Config | `LoadFile`, `LoadFileWithOptions`, `Load`, `LoadWithOptions` (`.json` only) |
+| Config | `LoadFileWithOptions`, `Load`, `LoadWithOptions` (`.json` only) |
 | Types | `Dimension`, `Rule`, `Action`, `Explanation`, `ClosestResult`, `Warning`, `WarningKind`, `Config`, `DimensionConfig`, `RuleConfig` |
 
 `Engine` is immutable and safe to share. For hot reload, load a new engine and swap a `sync/atomic.Pointer` holding `*gorege.Engine`.
@@ -143,8 +143,10 @@ gorege explain path/to/rules.json Guest Wed Sauna # which rule matched (debug); 
 gorege closest path/to/rules.json Guest Wed Sauna # nearest allowed tuple (BFS); exit 1 if none exists
 gorege closest-in path/to/rules.json 2 Guest Wed Sauna   # same, varying only dim index 2
 gorege closest-in path/to/rules.json facility Guest Wed Sauna # or dimension name
-gorege lint path/to/rules.json                    # warnings on stdout; exit 1 if any (`check` still prints loader warnings on stderr)
+gorege lint path/to/rules.json                    # dead/shadow warnings (or "ok"); exit 1 if any warnings
 ```
+
+**Where loader warnings go:** For `check`, `explain`, `partial-check`, `closest`, and `closest-in`, the main result is on **stdout** (for example `true`/`false` or `explain` fields), so engine load warnings (dead rules, shadowed rules, analysis limit, …) are printed to **stderr** as secondary output. **`lint`** is the opposite: those warnings *are* the intended output, so each message is printed to **stdout** (or `ok` when there are none), which keeps `lint` easy to pipe or scrape; load errors still go to **stderr**.
 
 `explain` prints `matched`, `allowed`, `rule_index`, `rule_name`, and `action` (or a line for implicit deny when no rule matches). Exit code stays `0` when the explanation was computed successfully.
 
@@ -173,7 +175,7 @@ dimension.go Dimensions
 check.go     Check, PartialCheck, Explain
 closest.go   Closest, ClosestIn, tiebreak
 conflict.go  Dead / shadow warnings
-loader.go    Config types, NewFromConfig, JSON Load / LoadFile (+ WithOptions)
+loader.go    Config types, NewFromConfig, JSON Load / LoadFileWithOptions
 result.go    Explanation, ClosestResult, Action helpers
 cmd/gorege   CLI
 fuzz_test.go Go fuzz targets (Load, Check, …)

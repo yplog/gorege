@@ -44,6 +44,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "       gorege closest-in <config.json> <dim-index-or-name> <dim values...>")
 	fmt.Fprintln(os.Stderr, "       gorege lint <config.json>")
 	fmt.Fprintln(os.Stderr, "       gorege partial-check <config.json> [<dim values...>]")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Loader warnings: stderr for check, explain, partial-check, closest, closest-in (secondary to stdout).")
+	fmt.Fprintln(os.Stderr, "                stdout for lint (primary output; \"ok\" when clean). Errors always on stderr.")
 }
 
 func runCheck(args []string) int {
@@ -53,7 +56,7 @@ func runCheck(args []string) int {
 	}
 	path := args[0]
 	vals := args[1:]
-	e, warnings, err := gorege.LoadFile(path)
+	e, warnings, err := gorege.LoadFileWithOptions(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gorege check:", err)
 		return 1
@@ -80,7 +83,7 @@ func runExplain(args []string) int {
 	}
 	path := args[0]
 	vals := args[1:]
-	e, warnings, err := gorege.LoadFile(path)
+	e, warnings, err := gorege.LoadFileWithOptions(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gorege explain:", err)
 		return 1
@@ -112,7 +115,7 @@ func runPartialCheck(args []string) int {
 	}
 	path := args[0]
 	vals := args[1:]
-	e, warnings, err := gorege.LoadFile(path)
+	e, warnings, err := gorege.LoadFileWithOptions(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gorege partial-check:", err)
 		return 1
@@ -139,7 +142,7 @@ func runClosest(args []string) int {
 	}
 	path := args[0]
 	vals := args[1:]
-	e, warnings, err := gorege.LoadFile(path)
+	e, warnings, err := gorege.LoadFileWithOptions(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gorege closest:", err)
 		return 1
@@ -173,7 +176,7 @@ func runClosestIn(args []string) int {
 	path := args[0]
 	dimSel := args[1]
 	vals := args[2:]
-	e, warnings, err := gorege.LoadFile(path)
+	e, warnings, err := gorege.LoadFileWithOptions(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gorege closest-in:", err)
 		return 1
@@ -204,17 +207,17 @@ func runClosestIn(args []string) int {
 }
 
 func printClosestResult(res *gorege.ClosestResult) {
-	_, _ = fmt.Println("found: true")
+	fmt.Println("found: true")
 	condJSON, err := json.Marshal(res.Conditions)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stdout, "conditions: %q\n", res.Conditions)
+		fmt.Printf("conditions: %q\n", res.Conditions)
 	} else {
-		_, _ = fmt.Printf("conditions: %s\n", condJSON)
+		fmt.Printf("conditions: %s\n", condJSON)
 	}
-	_, _ = fmt.Printf("distance: %d\n", res.Distance)
-	_, _ = fmt.Printf("dim_index: %d\n", res.DimIndex)
-	_, _ = fmt.Printf("dim_name: %s\n", res.DimName)
-	_, _ = fmt.Printf("value: %s\n", res.Value)
+	fmt.Printf("distance: %d\n", res.Distance)
+	fmt.Printf("dim_index: %d\n", res.DimIndex)
+	fmt.Printf("dim_name: %s\n", res.DimName)
+	fmt.Printf("value: %s\n", res.Value)
 }
 
 func runLint(args []string) int {
@@ -222,7 +225,7 @@ func runLint(args []string) int {
 		fmt.Fprintln(os.Stderr, "gorege lint: need exactly one config path")
 		return 2
 	}
-	_, warnings, err := gorege.LoadFile(args[0])
+	_, warnings, err := gorege.LoadFileWithOptions(args[0])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gorege lint:", err)
 		return 1

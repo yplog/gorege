@@ -23,7 +23,7 @@ var (
 	// valid index (int-sized signed/unsigned types) or a known dimension name.
 	ErrInvalidDimension = errors.New("gorege: invalid dimension selector")
 
-	// ErrUnsupportedConfigFormat is returned by [LoadFile] and
-	// [LoadFileWithOptions] when the path does not end in .json.
+	// ErrUnsupportedConfigFormat is returned by [LoadFileWithOptions] when the
+	// path does not end in .json.
 	ErrUnsupportedConfigFormat = errors.New("gorege: unsupported config format (use .json)")
 )

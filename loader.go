@@ -43,7 +43,7 @@ type RuleConfig struct {
 }
 
 // NewFromConfig builds an engine from a populated Config.
-// It runs the same validation and analysis as Load / LoadFile.
+// It runs the same validation and analysis as Load / LoadFileWithOptions.
 // Callers are responsible for parsing.
 //
 // opts are applied after WithDimensions and WithRules derived from the config,
@@ -61,20 +61,16 @@ func NewFromConfig(cfg Config, opts ...Option) (*Engine, []Warning, error) {
 	return New(append(base, opts...)...)
 }
 
-// LoadFile reads a JSON engine definition. The file extension must be .json.
-// It is equivalent to [LoadFileWithOptions] with no extra options.
+// LoadFileWithOptions reads a JSON engine definition from path. The file
+// extension must be .json. It decodes the file and calls [LoadWithOptions],
+// appending opts after the JSON-derived [WithDimensions] and [WithRules].
+// Pass no opts for the same behaviour as [LoadWithOptions] on the file bytes.
+// Use opts to set [WithAnalysisLimit], [WithTiebreak], or other [Option]
+// values when loading large configs.
 //
-// Hot reload: build a new engine with LoadFile and swap a
+// Hot reload: build a new engine with LoadFileWithOptions and swap a
 // sync/atomic.Pointer value holding the active [*Engine] so readers always
 // load through that pointer.
-func LoadFile(path string) (*Engine, []Warning, error) {
-	return LoadFileWithOptions(path)
-}
-
-// LoadFileWithOptions reads a JSON engine like [LoadFile], then builds the
-// engine with [New], appending opts after the JSON-derived [WithDimensions]
-// and [WithRules]. Use this to pass [WithAnalysisLimit], [WithTiebreak], or
-// other [Option] values when loading large configs.
 func LoadFileWithOptions(path string, opts ...Option) (*Engine, []Warning, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	if ext != ".json" {

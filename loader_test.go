@@ -14,7 +14,7 @@ import (
 func TestLoadFileJSONQuickStart(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join("testdata", "rules.json")
-	e, warnings, err := gorege.LoadFile(path)
+	e, warnings, err := gorege.LoadFileWithOptions(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestLoadFileUnsupportedExt(t *testing.T) {
 	if err := os.WriteFile(path, []byte("{}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, _, err := gorege.LoadFile(path)
+	_, _, err := gorege.LoadFileWithOptions(path)
 	if !errors.Is(err, gorege.ErrUnsupportedConfigFormat) {
 		t.Fatalf("got %v", err)
 	}
@@ -46,7 +46,7 @@ func TestLoadFileUnsupportedExt(t *testing.T) {
 func TestLoadFileMissingPath(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "nope.json")
-	_, _, err := gorege.LoadFile(path)
+	_, _, err := gorege.LoadFileWithOptions(path)
 	if err == nil {
 		t.Fatal("expected error for missing file")
 	}
@@ -156,7 +156,7 @@ func TestLoadFileExampleFixtures(t *testing.T) {
 		t.Run(tc.file+"/"+strings.Join(tc.check, ","), func(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join("testdata", tc.file)
-			e, warnings, err := gorege.LoadFile(path)
+			e, warnings, err := gorege.LoadFileWithOptions(path)
 			if err != nil {
 				t.Fatal(err)
 			}
