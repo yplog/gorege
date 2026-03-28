@@ -101,8 +101,7 @@ func validateMatcher(m matcher, dim Dimension, dimKnown bool, ruleIdx, dimIdx in
 		if m.kind == mExact {
 			return fmt.Errorf("%w: rule %d dim %d exact %q with no dimension declared", ErrUnknownDimensionValue, ruleIdx, dimIdx, m.exact)
 		}
-		for _, v := range m.anyof {
-			_ = v
+		if m.kind == mAnyOf {
 			return fmt.Errorf("%w: rule %d dim %d anyOf references values with no dimension declared", ErrUnknownDimensionValue, ruleIdx, dimIdx)
 		}
 	}

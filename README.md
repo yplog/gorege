@@ -118,8 +118,11 @@ go install github.com/yplog/gorege/cmd/gorege@latest
 # or: task build-cli  → ./bin/gorege
 
 gorege check path/to/rules.json Guest Wed Sauna   # prints true/false; exit 1 if denied or error
+gorege explain path/to/rules.json Guest Wed Sauna # which rule matched (debug); exit 1 on load/arity error only
 gorege lint path/to/rules.json                    # prints warnings; exit 1 if any
 ```
+
+`explain` prints `matched`, `allowed`, `rule_index`, `rule_name`, and `action` (or a line for implicit deny when no rule matches). Exit code stays `0` when the explanation was computed successfully.
 
 ## Development
 

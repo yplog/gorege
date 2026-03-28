@@ -19,6 +19,8 @@ func realMain(args []string) int {
 	switch args[1] {
 	case "check":
 		return runCheck(args[2:])
+	case "explain":
+		return runExplain(args[2:])
 	case "lint":
 		return runLint(args[2:])
 	default:
@@ -29,6 +31,7 @@ func realMain(args []string) int {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "usage: gorege check <config.json> <dim values...>")
+	fmt.Fprintln(os.Stderr, "       gorege explain <config.json> <dim values...>")
 	fmt.Fprintln(os.Stderr, "       gorege lint <config.json>")
 }
 
@@ -55,6 +58,38 @@ func runCheck(args []string) int {
 	fmt.Println(ok)
 	if !ok {
 		return 1
+	}
+	return 0
+}
+
+func runExplain(args []string) int {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "gorege explain: missing config path")
+		return 2
+	}
+	path := args[0]
+	vals := args[1:]
+	e, warnings, err := gorege.LoadFile(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "gorege explain:", err)
+		return 1
+	}
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, "warning:", w.Message)
+	}
+	x, err := e.Explain(vals...)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "gorege explain:", err)
+		return 1
+	}
+	fmt.Printf("matched: %v\n", x.Matched)
+	fmt.Printf("allowed: %v\n", x.Allowed)
+	fmt.Printf("rule_index: %d\n", x.RuleIndex)
+	fmt.Printf("rule_name: %s\n", x.RuleName)
+	if x.Matched {
+		fmt.Printf("action: %s\n", x.Action.String())
+	} else {
+		fmt.Println("action: (implicit deny, no rule matched)")
 	}
 	return 0
 }
