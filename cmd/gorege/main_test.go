@@ -433,7 +433,24 @@ func TestRunLintWarningsExit1(t *testing.T) {
 }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if code := runLint([]string{path}); code != 1 {
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldOut := os.Stdout
+	os.Stdout = wOut
+	code := runLint([]string{path})
+	mustClose(t, wOut)
+	var outBuf bytes.Buffer
+	if _, err := outBuf.ReadFrom(rOut); err != nil {
+		t.Fatal(err)
+	}
+	mustClose(t, rOut)
+	os.Stdout = oldOut
+	if code != 1 {
 		t.Fatalf("code=%d", code)
+	}
+	if !strings.Contains(outBuf.String(), "shadowed") {
+		t.Fatalf("expected warning on stdout: %q", outBuf.String())
 	}
 }

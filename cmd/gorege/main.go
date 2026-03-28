@@ -202,7 +202,7 @@ func runLint(args []string) int {
 		return 0
 	}
 	for _, w := range warnings {
-		fmt.Fprintln(os.Stderr, w.Message)
+		fmt.Println(w.Message)
 	}
 	return 1
 }

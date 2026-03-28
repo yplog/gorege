@@ -37,9 +37,14 @@ func (e *Engine) Check(values ...string) (bool, error) {
 	return false, nil
 }
 
-// PartialCheck allows a shorter input prefix. Trailing dimensions are
-// unconstrained: a matcher at those positions is treated as satisfied for
-// ALLOW rules and as failed for DENY rules (Recht-style behaviour).
+// PartialCheck allows a shorter input prefix (including an empty prefix).
+// Trailing dimensions are unconstrained: a matcher at those positions is
+// treated as satisfied for ALLOW rules and as failed for DENY rules
+// (Recht-style behaviour). The empty prefix means “no values fixed yet”:
+// it is not an arity error (unlike [Engine.Check], which requires a full tuple).
+// Semantically it answers whether any completion could still be allowed—for
+// example, after PartialCheck("Guest") asks whether Guest can access for some
+// day, PartialCheck() asks whether anyone can access for some full tuple.
 //
 // If len(values) is greater than the number of dimensions, it returns
 // [ErrArityMismatch] so misuse is not conflated with an implicit deny (false, nil).

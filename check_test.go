@@ -206,3 +206,33 @@ func TestPartialCheckTooManyValues(t *testing.T) {
 		t.Fatal("expected ok false with arity error")
 	}
 }
+
+func TestPartialCheckZeroPrefix(t *testing.T) {
+	t.Parallel()
+
+	// Engine has ALLOW rules → zero-prefix should return true
+	e1, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(gorege.Allow("a")),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, err := e1.PartialCheck()
+	if err != nil || !ok {
+		t.Fatalf("zero prefix with ALLOW rule: ok=%v err=%v", ok, err)
+	}
+
+	// Engine has only DENY rules → zero-prefix returns false
+	e2, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(gorege.Deny("a"), gorege.Deny("b")),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, err = e2.PartialCheck()
+	if err != nil || ok {
+		t.Fatalf("zero prefix with only DENY rules: ok=%v err=%v", ok, err)
+	}
+}

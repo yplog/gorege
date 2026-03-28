@@ -72,7 +72,7 @@ Each rule is **ALLOW** or **DENY** plus one matcher per dimension (in order):
 
 Evaluation is **first match wins**. If nothing matches, `Check` returns `false`. Shorter rules implicitly wildcard trailing dimensions.
 
-`Check` requires exactly as many arguments as dimensions (`ErrArityMismatch` otherwise). `PartialCheck` allows a prefix tuple (Recht-style trailing “unconstrained” behaviour) and returns `(bool, error)`: if you pass **more** values than dimensions you get `ErrArityMismatch` instead of a bare `false`, so overload is not mistaken for denial.
+`Check` requires exactly as many arguments as dimensions (`ErrArityMismatch` otherwise). `PartialCheck` allows a prefix tuple, including **zero** values (empty prefix: “could any full tuple still be allowed?”), with Recht-style trailing “unconstrained” behaviour. It returns `(bool, error)`; if you pass **more** values than dimensions you get `ErrArityMismatch` instead of a bare `false`, so overload is not mistaken for denial.
 
 ## JSON config
 
@@ -123,7 +123,7 @@ gorege explain path/to/rules.json Guest Wed Sauna # which rule matched (debug); 
 gorege closest path/to/rules.json Guest Wed Sauna # nearest allowed tuple (BFS); exit 1 if none exists
 gorege closest-in path/to/rules.json 2 Guest Wed Sauna   # same, varying only dim index 2
 gorege closest-in path/to/rules.json facility Guest Wed Sauna # or dimension name
-gorege lint path/to/rules.json                    # prints warnings; exit 1 if any
+gorege lint path/to/rules.json                    # warnings on stdout; exit 1 if any (`check` still prints loader warnings on stderr)
 ```
 
 `explain` prints `matched`, `allowed`, `rule_index`, `rule_name`, and `action` (or a line for implicit deny when no rule matches). Exit code stays `0` when the explanation was computed successfully.

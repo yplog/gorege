@@ -115,6 +115,10 @@ func (e *Engine) resolveDim(dim any) (int, error) {
 
 func (e *Engine) searchSubset(input []string, subset []int) *ClosestResult {
 	cur := append([]string(nil), input...)
+	// DFS reuses one cur slice: each branch assigns subset[pos], recurses, then
+	// restores that slot to input[di]. Indices in subset are distinct, so a
+	// dimension is not touched twice on the same path—restore is always input[di].
+	// Mutation stays inside this call’s cur (engine is read-only for Check).
 	var dfs func(pos int) *ClosestResult
 	dfs = func(pos int) *ClosestResult {
 		if pos == len(subset) {
@@ -130,12 +134,11 @@ func (e *Engine) searchSubset(input []string, subset []int) *ClosestResult {
 			if v == input[di] {
 				continue
 			}
-			prev := cur[di]
 			cur[di] = v
 			if res := dfs(pos + 1); res != nil {
 				return res
 			}
-			cur[di] = prev
+			cur[di] = input[di]
 		}
 		return nil
 	}
