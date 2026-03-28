@@ -4,7 +4,7 @@
 <p align="center">
   <a href="https://github.com/yplog/gorege/actions/workflows/ci.yml"><img src="https://github.com/yplog/gorege/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://codecov.io/gh/yplog/gorege"><img src="https://codecov.io/gh/yplog/gorege/branch/main/graph/badge.svg" alt="Coverage"></a>
-  <a href="https://goreportcard.com/report/github.com/yplog/gorege"><img src="https://goreportcard.com/badge/github.com/yplog/gorege" alt="Go Report Card"></a>
+  <a href="https://goreportcard.com/report/github.com/yplog/gorege"><img src="https://goreportcard.com/badge/github.com/yplog/gorege?nocache=true" alt="Go Report Card"></a>
   <a href="https://pkg.go.dev/github.com/yplog/gorege"><img src="https://pkg.go.dev/badge/github.com/yplog/gorege.svg" alt="Go Reference"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
