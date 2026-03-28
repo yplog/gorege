@@ -103,10 +103,10 @@ On `New`, `Load`, or `LoadWithOptions`, the engine reports **warnings** for rule
 
 ## Bring Your Own Parser
 
-`gorege.Config`, `gorege.DimensionConfig` ve `gorege.RuleConfig` struct'ları dışa açıktır. YAML, TOML veya başka bir formattan engine oluşturmak için kendi parser'ınızı kullanarak bu struct'ları doldurun, ardından `NewFromConfig`'i çağırın:
+`gorege.Config`, `gorege.DimensionConfig`, and `gorege.RuleConfig` are exported. To build an engine from YAML, TOML, or another format, decode into these types with your own parser, then call `NewFromConfig`:
 
 ```go
-import "gopkg.in/yaml.v3" // kendi projenizde, gorege'de bağımlılık değil
+import "gopkg.in/yaml.v3" // in your project; not a gorege dependency
 
 var cfg gorege.Config
 if err := yaml.Unmarshal(data, &cfg); err != nil { ... }
@@ -116,18 +116,18 @@ e, warnings, err := gorege.NewFromConfig(cfg,
 )
 ```
 
-`gorege` yalnızca `encoding/json` kullanır. `yaml:"..."` tag'leri, gorege'nin kütüphane olarak sıfır runtime bağımlılığı ilkesini korurken sizin tarafınızdan herhangi bir YAML kütüphanesiyle okunabilmesi için mevcuttur.
+`gorege` uses only `encoding/json` internally. The `yaml:"..."` struct tags let you unmarshal with any YAML library on your side while keeping gorege a zero third-party dependency as a library.
 
 ## API overview
 
 | Area | Functions |
 |------|-----------|
-| Build | `New`, `WithDimensions`, `WithRules`, `WithTiebreak`, `WithAnalysisLimit` (shadow analysis tuple cap, default 100 000) |
+| Build | `New`, `NewFromConfig`, `WithDimensions`, `WithRules`, `WithTiebreak`, `WithAnalysisLimit` (shadow analysis tuple cap, default 100 000) |
 | Inspect | `Dimensions`, `Rules` (defensive copies) |
 | Evaluate | `Check`, `PartialCheck`, `Explain` |
 | Nearest allow | `Closest` — BFS by Hamming distance from the input; **any** dimensions may change until an allowed tuple is found. `ClosestIn` — **only** the selected dimension changes (others fixed); `dim` is an index or dimension name. Tiebreak (`WithTiebreak`): leftmost / rightmost / declaration order affects `Closest` search and reporting. |
 | Config | `LoadFile`, `LoadFileWithOptions`, `Load`, `LoadWithOptions` (`.json` only) |
-| Types | `Dimension`, `Rule`, `Action`, `Explanation`, `ClosestResult`, `Warning`, `WarningKind` |
+| Types | `Dimension`, `Rule`, `Action`, `Explanation`, `ClosestResult`, `Warning`, `WarningKind`, `Config`, `DimensionConfig`, `RuleConfig` |
 
 `Engine` is immutable and safe to share. For hot reload, load a new engine and swap a `sync/atomic.Pointer` holding `*gorege.Engine`.
 
@@ -173,7 +173,7 @@ dimension.go Dimensions
 check.go     Check, PartialCheck, Explain
 closest.go   Closest, ClosestIn, tiebreak
 conflict.go  Dead / shadow warnings
-loader.go    JSON Load / LoadFile (+ WithOptions variants)
+loader.go    Config types, NewFromConfig, JSON Load / LoadFile (+ WithOptions)
 result.go    Explanation, ClosestResult, Action helpers
 cmd/gorege   CLI
 fuzz_test.go Go fuzz targets (Load, Check, …)

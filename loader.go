@@ -10,47 +10,44 @@ import (
 	"strings"
 )
 
-// Config, gorege motorunu ayağa kaldırmak için gereken ham konfigürasyonu
-// temsil eder. Parsing sorumluluğu çağırana aittir; bu struct yalnızca
-// motora veri taşır.
+// Config holds the raw configuration needed to build a gorege engine.
+// Callers are responsible for parsing; this struct only carries data into the engine.
 //
-// YAML veya TOML kullanmak isteyen kullanıcılar kendi projesinde istediği
-// parser kütüphanesini import eder ve veriyi bu struct'a doldurur:
+// To use YAML or TOML, import a parser in your own project and populate this struct, for example:
 //
 //	var cfg gorege.Config
-//	yaml.Unmarshal(data, &cfg)          // kendi projenizde
-//	e, _, _ := gorege.NewFromConfig(cfg)
+//	if err := yaml.Unmarshal(data, &cfg); err != nil { ... }
+//	e, _, err := gorege.NewFromConfig(cfg)
 //
-// gorege kendisi yalnızca encoding/json kullanır.
+// The gorege module itself uses only encoding/json.
 type Config struct {
 	Dimensions []DimensionConfig `json:"dimensions" yaml:"dimensions"`
 	Rules      []RuleConfig      `json:"rules"      yaml:"rules"`
 }
 
-// DimensionConfig, bir dimension eksenini tanımlar.
-// Name boş bırakılırsa anonim dimension (DimValues semantiği) oluşturulur.
+// DimensionConfig describes one dimension axis.
+// If Name is empty, the dimension is anonymous (DimValues semantics).
 type DimensionConfig struct {
 	Name   string   `json:"name"   yaml:"name"`
 	Values []string `json:"values" yaml:"values"`
 }
 
-// RuleConfig, tek bir kuralı tanımlar. Conditions içindeki her slot şunlardan
-// biri olabilir:
-//   - string       → exact eşleşme veya "*" wildcard
-//   - []any        → AnyOf listesi (encoding/json bu tipi üretir)
-//   - []string     → AnyOf listesi (YAML parser'lar bu tipi üretebilir)
+// RuleConfig describes a single rule. Each element of Conditions may be:
+//   - string — exact match or "*" wildcard
+//   - []any — AnyOf list (as produced by encoding/json)
+//   - []string — AnyOf list (as some YAML decoders produce)
 type RuleConfig struct {
 	Action     string `json:"action"     yaml:"action"`
 	Name       string `json:"name"       yaml:"name"`
 	Conditions []any  `json:"conditions" yaml:"conditions"`
 }
 
-// NewFromConfig, önceden doldurulmuş bir Config'den engine oluşturur.
-// Load / LoadFile ile aynı validation ve analiz adımlarını çalıştırır.
-// Parsing sorumluluğu çağırana aittir.
+// NewFromConfig builds an engine from a populated Config.
+// It runs the same validation and analysis as Load / LoadFile.
+// Callers are responsible for parsing.
 //
-// opts, JSON'dan türetilen WithDimensions ve WithRules'tan sonra uygulanır;
-// dolayısıyla WithAnalysisLimit, WithTiebreak gibi seçenekler geçersiz kılınabilir.
+// opts are applied after WithDimensions and WithRules derived from the config,
+// so options such as WithAnalysisLimit and WithTiebreak can override those settings.
 func NewFromConfig(cfg Config, opts ...Option) (*Engine, []Warning, error) {
 	dims, err := dimensionsFromFile(cfg.Dimensions)
 	if err != nil {
