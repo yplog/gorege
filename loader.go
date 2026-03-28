@@ -1,6 +1,7 @@
 package gorege
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,16 +32,15 @@ type fileRule struct {
 // sync/atomic.Pointer value holding the active [*Engine] so readers always
 // load through that pointer.
 func LoadFile(path string) (*Engine, []Warning, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer f.Close()
 	ext := strings.ToLower(filepath.Ext(path))
 	if ext != ".json" {
 		return nil, nil, fmt.Errorf("%w: %q", ErrUnsupportedConfigFormat, ext)
 	}
-	return Load(f)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return Load(bytes.NewReader(b))
 }
 
 // Load decodes JSON from r into an engine.

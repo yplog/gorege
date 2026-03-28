@@ -8,6 +8,13 @@ import (
 	"testing"
 )
 
+func mustClose(t *testing.T, f *os.File) {
+	t.Helper()
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRealMainUsage(t *testing.T) {
 	if code := realMain([]string{"gorege"}); code != 2 {
 		t.Fatalf("code=%d", code)
@@ -54,12 +61,17 @@ func TestRunCheckOK(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	old := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
 	os.Stdout = w
 	code := runCheck([]string{path, "a"})
-	w.Close()
-	_, _ = buf.ReadFrom(r)
-	r.Close()
+	mustClose(t, w)
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatal(err)
+	}
+	mustClose(t, r)
 	os.Stdout = old
 	if code != 0 {
 		t.Fatalf("code=%d", code)
@@ -98,14 +110,19 @@ func TestRunCheckWarningsPrinted(t *testing.T) {
 }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	rErr, wErr, _ := os.Pipe()
+	rErr, wErr, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
 	oldErr := os.Stderr
 	os.Stderr = wErr
 	code := runCheck([]string{path, "a"})
-	wErr.Close()
+	mustClose(t, wErr)
 	var errBuf bytes.Buffer
-	_, _ = errBuf.ReadFrom(rErr)
-	rErr.Close()
+	if _, err := errBuf.ReadFrom(rErr); err != nil {
+		t.Fatal(err)
+	}
+	mustClose(t, rErr)
 	os.Stderr = oldErr
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
@@ -139,14 +156,19 @@ func TestRunLintOK(t *testing.T) {
 }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	rOut, wOut, _ := os.Pipe()
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
 	oldOut := os.Stdout
 	os.Stdout = wOut
 	code := runLint([]string{path})
-	wOut.Close()
+	mustClose(t, wOut)
 	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(rOut)
-	rOut.Close()
+	if _, err := buf.ReadFrom(rOut); err != nil {
+		t.Fatal(err)
+	}
+	mustClose(t, rOut)
 	os.Stdout = oldOut
 	if code != 0 {
 		t.Fatalf("code=%d", code)
