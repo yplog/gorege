@@ -1,5 +1,9 @@
 # gorege
 
+<p align="center">
+  <img src=".github/gorege.png" alt="gorege" width="180">
+</p>
+
 A small Go library for **first-match rule evaluation** over a fixed tuple of dimensions: access control, feature flags, A/B cohorts, product availability, and similar decisions all map to the same pattern.
 
 Design goals: idiomatic Go, immutable engines safe for concurrent use, explicit semantics (including `Explain` and dead/shadow rule warnings), and a true BFS-based `Closest` search for minimum Hamming distance. The API is influenced by [recht](https://github.com/dashersw/recht); gorege adds stronger guarantees and observability.
