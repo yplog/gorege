@@ -63,13 +63,13 @@ func effectiveValues(m matcher, dim Dimension) []string {
 	case mWildcard:
 		return dim.values
 	case mExact:
-		if dim.contains(m.exact) {
-			return []string{m.exact}
+		if dim.contains(m.vals[0]) {
+			return []string{m.vals[0]}
 		}
 		return nil
 	case mAnyOf:
-		out := make([]string, 0, len(m.anyof))
-		for _, v := range m.anyof {
+		out := make([]string, 0, len(m.vals))
+		for _, v := range m.vals {
 			if dim.contains(v) {
 				out = append(out, v)
 			}
@@ -102,14 +102,13 @@ func isDeadRule(r Rule, dims []Dimension) bool {
 }
 
 func shadowWarnings(dims []Dimension, rules []Rule, deadMask []bool) []Warning {
-	tuples := cartesianProduct(dims)
 	n := len(rules)
 	if n == 0 {
 		return nil
 	}
 	wins := make([]bool, n)
 	d := len(dims)
-	for _, tup := range tuples {
+	walkCartesian(dims, func(tup []string) {
 		fm := -1
 		for j, r := range rules {
 			if deadMask[j] {
@@ -124,7 +123,7 @@ func shadowWarnings(dims []Dimension, rules []Rule, deadMask []bool) []Warning {
 		if fm >= 0 {
 			wins[fm] = true
 		}
-	}
+	})
 	var out []Warning
 	for j := range rules {
 		if deadMask[j] {
@@ -149,23 +148,39 @@ func ruleWarningLabel(j int, r Rule) string {
 	return strconv.Itoa(j)
 }
 
-func cartesianProduct(dims []Dimension) [][]string {
-	if len(dims) == 0 {
-		return [][]string{{}}
-	}
-	out := [][]string{{}}
+// walkCartesian calls fn for each tuple in the Cartesian product of dims' value
+// lists. fn receives a reused buffer; callers must copy if they retain it.
+// Empty value lists yield no calls (same as skipping shadow tuples). len(dims)==0
+// invokes fn(nil) once.
+func walkCartesian(dims []Dimension, fn func(tuple []string)) {
 	for _, dim := range dims {
 		if len(dim.values) == 0 {
-			return nil
+			return
 		}
-		var next [][]string
-		for _, prefix := range out {
-			for _, v := range dim.values {
-				t := append(append([]string(nil), prefix...), v)
-				next = append(next, t)
+	}
+	if len(dims) == 0 {
+		fn(nil)
+		return
+	}
+	d := len(dims)
+	indices := make([]int, d)
+	buf := make([]string, d)
+	for {
+		for i, dim := range dims {
+			buf[i] = dim.values[indices[i]]
+		}
+		fn(buf)
+		carry := true
+		for i := d - 1; i >= 0 && carry; i-- {
+			indices[i]++
+			if indices[i] < len(dims[i].values) {
+				carry = false
+			} else {
+				indices[i] = 0
 			}
 		}
-		out = next
+		if carry {
+			return
+		}
 	}
-	return out
 }

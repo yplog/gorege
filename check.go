@@ -69,26 +69,25 @@ func (e *Engine) eval(values []string, partial bool) (allowed bool, matched bool
 }
 
 func ruleMatches(r Rule, dims []Dimension, dimCount int, values []string, partial bool) bool {
+	mlen := len(r.m)
 	for i := range dimCount {
-		var m matcher
-		if i < len(r.m) {
-			m = r.m[i]
-		} else {
-			m = matcher{kind: mWildcard}
-		}
 		if partial && i >= len(values) {
-			if !m.unconstrainedMatch(r.act) {
+			if i < mlen {
+				if !r.m[i].unconstrainedMatch(r.act) {
+					return false
+				}
+			}
+			continue
+		}
+		dim := dims[i]
+		input := values[i]
+		if i >= mlen {
+			if len(dim.values) > 0 && !dim.contains(input) {
 				return false
 			}
 			continue
 		}
-		dimKnown := i < dimCount
-		var dim Dimension
-		if dimKnown {
-			dim = dims[i]
-		}
-		input := values[i]
-		if !m.matches(input, dim, dimKnown && len(dim.values) > 0) {
+		if !r.m[i].matches(input, dim) {
 			return false
 		}
 	}

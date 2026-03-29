@@ -1,6 +1,20 @@
 package gorege
 
-import "slices"
+import (
+	"slices"
+	"sync"
+)
+
+// maxDims is the largest tuple length for which Closest reuses pooled scratch
+// slices; larger arity allocates per searchSubset call.
+const maxDims = 16
+
+var curPool = sync.Pool{
+	New: func() any {
+		s := make([]string, maxDims)
+		return &s
+	},
+}
 
 // Closest searches for a nearest allowed tuple using breadth-first Hamming
 // distance: distance 1, then 2, … until a candidate passes [Engine.Check].
@@ -42,21 +56,22 @@ func (e *Engine) ClosestIn(dim any, values ...string) (*ClosestResult, error) {
 	}
 	input := values
 	d := e.dims[di]
+	cand := append([]string(nil), input...)
 	for _, v := range d.values {
 		if v == input[di] {
 			continue
 		}
-		cand := append([]string(nil), input...)
 		cand[di] = v
 		ok, err := e.Check(cand...)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
+			cand[di] = input[di]
 			continue
 		}
 		return &ClosestResult{
-			Conditions: cand,
+			Conditions: append([]string(nil), cand...),
 			Distance:   hammingDistance(input, cand),
 			DimIndex:   di,
 			DimName:    d.name,
@@ -114,7 +129,22 @@ func (e *Engine) resolveDim(dim any) (int, error) {
 }
 
 func (e *Engine) searchSubset(input []string, subset []int) *ClosestResult {
-	cur := append([]string(nil), input...)
+	d := len(input)
+	var cur []string
+	var release func()
+	if d <= maxDims {
+		ptr := curPool.Get().(*[]string)
+		cur = (*ptr)[:d]
+		copy(cur, input)
+		release = func() {
+			*ptr = (*ptr)[:maxDims]
+			curPool.Put(ptr)
+		}
+	} else {
+		cur = append([]string(nil), input...)
+		release = func() {}
+	}
+	defer release()
 	// DFS reuses one cur slice: each branch assigns subset[pos], recurses, then
 	// restores that slot to input[di]. Indices in subset are distinct, so a
 	// dimension is not touched twice on the same path—restore is always input[di].

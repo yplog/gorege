@@ -54,9 +54,8 @@ const (
 )
 
 type matcher struct {
-	kind  matcherKind
-	exact string
-	anyof []string
+	kind matcherKind
+	vals []string // nil: wildcard; len==1: exact; len>=2: anyOf
 }
 
 func parseMatchers(parts []any) []matcher {
@@ -70,36 +69,37 @@ func parseMatchers(parts []any) []matcher {
 func mustMatcher(p any) matcher {
 	switch x := p.(type) {
 	case string:
-		return matcher{kind: mExact, exact: x}
+		return matcher{kind: mExact, vals: []string{x}}
 	case WildcardType:
 		return matcher{kind: mWildcard}
 	case anyOf:
-		return matcher{kind: mAnyOf, anyof: append([]string(nil), x...)}
+		return matcher{kind: mAnyOf, vals: append([]string(nil), x...)}
 	default:
 		panic(fmt.Sprintf("gorege: invalid matcher type %T (use string, Wildcard, or AnyOf)", p))
 	}
 }
 
-func (m matcher) matches(input string, dim Dimension, dimKnown bool) bool {
+func (m matcher) matches(input string, dim Dimension) bool {
+	declared := len(dim.values) > 0
 	switch m.kind {
 	case mWildcard:
-		if !dimKnown {
+		if !declared {
 			return true
 		}
 		return dim.contains(input)
 	case mExact:
-		if m.exact != input {
+		if m.vals[0] != input {
 			return false
 		}
-		if dimKnown && !dim.contains(input) {
+		if declared && !dim.contains(input) {
 			// Validated at New; defensive for tests without full engine.
 			return false
 		}
 		return true
 	case mAnyOf:
-		for _, v := range m.anyof {
+		for _, v := range m.vals {
 			if v == input {
-				if dimKnown && !dim.contains(input) {
+				if declared && !dim.contains(input) {
 					return false
 				}
 				return true
@@ -137,10 +137,10 @@ func cloneRules(rules []Rule) []Rule {
 
 func cloneMatchers(m []matcher) []matcher {
 	out := make([]matcher, len(m))
-	copy(out, m)
-	for i := range out {
-		if out[i].kind == mAnyOf {
-			out[i].anyof = append([]string(nil), out[i].anyof...)
+	for i, v := range m {
+		out[i] = matcher{kind: v.kind}
+		if v.vals != nil {
+			out[i].vals = append([]string(nil), v.vals...)
 		}
 	}
 	return out

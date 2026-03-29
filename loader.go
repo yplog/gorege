@@ -166,7 +166,7 @@ func matcherFromSlot(v any) (matcher, error) {
 		if strings.TrimSpace(x) == "*" {
 			return matcher{kind: mWildcard}, nil
 		}
-		return matcher{kind: mExact, exact: x}, nil
+		return matcher{kind: mExact, vals: []string{x}}, nil
 	case []any:
 		vals := make([]string, 0, len(x))
 		for j, e := range x {
@@ -176,9 +176,9 @@ func matcherFromSlot(v any) (matcher, error) {
 			}
 			vals = append(vals, s)
 		}
-		return matcher{kind: mAnyOf, anyof: vals}, nil
+		return matcher{kind: mAnyOf, vals: vals}, nil
 	case []string:
-		return matcher{kind: mAnyOf, anyof: append([]string(nil), x...)}, nil
+		return matcher{kind: mAnyOf, vals: append([]string(nil), x...)}, nil
 	default:
 		return matcher{}, fmt.Errorf("want string, anyOf list, or *; got %T", v)
 	}

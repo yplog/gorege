@@ -23,7 +23,7 @@ func TestMatcherFromSlotStringSlice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.kind != mAnyOf || len(m.anyof) != 2 || m.anyof[0] != "a" || m.anyof[1] != "b" {
+	if m.kind != mAnyOf || len(m.vals) != 2 || m.vals[0] != "a" || m.vals[1] != "b" {
 		t.Fatalf("%+v", m)
 	}
 }
@@ -38,18 +38,18 @@ func TestMatcherFromSlotInvalidType(t *testing.T) {
 
 func TestMatcherMatchesDefensiveExactUnknownValue(t *testing.T) {
 	t.Parallel()
-	m := matcher{kind: mExact, exact: "x"}
+	m := matcher{kind: mExact, vals: []string{"x"}}
 	dim := DimValues("a", "b")
-	if m.matches("x", dim, true) {
+	if m.matches("x", dim) {
 		t.Fatal("exact value not in dimension should not match when dimKnown")
 	}
 }
 
 func TestMatcherMatchesDefensiveAnyOfUnknownValue(t *testing.T) {
 	t.Parallel()
-	m := matcher{kind: mAnyOf, anyof: []string{"x"}}
+	m := matcher{kind: mAnyOf, vals: []string{"x"}}
 	dim := DimValues("a", "b")
-	if m.matches("x", dim, true) {
+	if m.matches("x", dim) {
 		t.Fatal("anyOf value not in dimension should not match when dimKnown")
 	}
 }
@@ -58,7 +58,7 @@ func TestMatcherMatchesInvalidKind(t *testing.T) {
 	t.Parallel()
 	m := matcher{kind: matcherKind(255)}
 	dim := DimValues("a")
-	if m.matches("a", dim, true) {
+	if m.matches("a", dim) {
 		t.Fatal("invalid kind should not match")
 	}
 }
@@ -67,7 +67,7 @@ func TestMatcherWildcardWhenDimNotKnownForMatch(t *testing.T) {
 	t.Parallel()
 	m := matcher{kind: mWildcard}
 	var dim Dimension
-	if !m.matches("any-input", dim, false) {
+	if !m.matches("any-input", dim) {
 		t.Fatal("wildcard with dimKnown false should match any input")
 	}
 }

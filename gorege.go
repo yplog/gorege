@@ -162,7 +162,11 @@ func validateMatcher(m matcher, dim Dimension, dimKnown bool, ruleIdx, dimIdx in
 			return nil
 		}
 		if m.kind == mExact {
-			return fmt.Errorf("%w: rule %d dim %d exact %q with no dimension declared", ErrUnknownDimensionValue, ruleIdx, dimIdx, m.exact)
+			v := ""
+			if len(m.vals) > 0 {
+				v = m.vals[0]
+			}
+			return fmt.Errorf("%w: rule %d dim %d exact %q with no dimension declared", ErrUnknownDimensionValue, ruleIdx, dimIdx, v)
 		}
 		if m.kind == mAnyOf {
 			return fmt.Errorf("%w: rule %d dim %d anyOf references values with no dimension declared", ErrUnknownDimensionValue, ruleIdx, dimIdx)
@@ -177,11 +181,11 @@ func validateMatcher(m matcher, dim Dimension, dimKnown bool, ruleIdx, dimIdx in
 	}
 	switch m.kind {
 	case mExact:
-		if !dim.contains(m.exact) {
-			return fmt.Errorf("%w: rule %d dim %d exact %q", ErrUnknownDimensionValue, ruleIdx, dimIdx, m.exact)
+		if !dim.contains(m.vals[0]) {
+			return fmt.Errorf("%w: rule %d dim %d exact %q", ErrUnknownDimensionValue, ruleIdx, dimIdx, m.vals[0])
 		}
 	case mAnyOf:
-		for _, v := range m.anyof {
+		for _, v := range m.vals {
 			if !dim.contains(v) {
 				return fmt.Errorf("%w: rule %d dim %d anyOf value %q", ErrUnknownDimensionValue, ruleIdx, dimIdx, v)
 			}
