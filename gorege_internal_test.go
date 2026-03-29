@@ -2,6 +2,8 @@ package gorege
 
 import (
 	"errors"
+	"fmt"
+	"math/rand"
 	"slices"
 	"strings"
 	"testing"
@@ -335,4 +337,90 @@ func TestPrevComboKZero(t *testing.T) {
 	if prevCombo([]int{}, 3) {
 		t.Error("k=0: expected false")
 	}
+}
+
+func clampInt(v, min, max int) int {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
+// FuzzTrieVsLinear checks that trie search agrees with linear scan on Check.
+func FuzzTrieVsLinear(f *testing.F) {
+	f.Add(3, 3, 200, false)
+	f.Add(3, 5, 200, true)
+	f.Add(5, 4, 500, false)
+
+	f.Fuzz(func(t *testing.T, numDims, numVals, numRules int, lastDeny bool) {
+		numDims = clampInt(numDims, 1, 6)
+		numVals = clampInt(numVals, 2, 8)
+		numRules = clampInt(numRules, trieThreshold+1, 600)
+
+		dims := make([]Dimension, numDims)
+		for i := range dims {
+			vals := make([]string, numVals)
+			for j := range vals {
+				vals[j] = fmt.Sprintf("v%d_%d", i, j)
+			}
+			dims[i] = DimValues(vals...)
+		}
+
+		rng := rand.New(rand.NewSource(int64(numDims*1000 + numVals*100 + numRules)))
+		rules := make([]Rule, numRules)
+		for ri := range rules {
+			parts := make([]any, numDims)
+			for di := range dims {
+				r := rng.Intn(10)
+				switch {
+				case r < 3:
+					parts[di] = Wildcard
+				case r < 6:
+					parts[di] = dims[di].values[rng.Intn(numVals)]
+				default:
+					a := dims[di].values[rng.Intn(numVals)]
+					b := dims[di].values[rng.Intn(numVals)]
+					parts[di] = AnyOf(a, b)
+				}
+			}
+			if ri == numRules-1 && lastDeny {
+				rules[ri] = Deny(parts...)
+			} else {
+				rules[ri] = Allow(parts...)
+			}
+		}
+
+		eFull, _, err := New(
+			WithDimensions(dims...),
+			WithRules(rules...),
+			WithAnalysisLimit(-1),
+		)
+		if err != nil {
+			t.Skip("invalid engine:", err)
+		}
+		if eFull.trieRoot == nil {
+			t.Fatal("expected trie for large rule set")
+		}
+
+		input := make([]string, numDims)
+		for di := range dims {
+			input[di] = dims[di].values[rng.Intn(numVals)]
+		}
+
+		trieResult, trieErr := eFull.Check(input...)
+		saved := eFull.trieRoot
+		eFull.trieRoot = nil
+		linearResult, linearErr := eFull.Check(input...)
+		eFull.trieRoot = saved
+
+		if trieErr != linearErr {
+			t.Fatalf("error mismatch trie=%v linear=%v input=%v", trieErr, linearErr, input)
+		}
+		if trieResult != linearResult {
+			t.Fatalf("result mismatch trie=%v linear=%v input=%v rules=%d", trieResult, linearResult, input, numRules)
+		}
+	})
 }

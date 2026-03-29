@@ -58,6 +58,7 @@ tasks:
       - go test -fuzz=FuzzPartialCheckTwoDims -fuzztime={{.FUZZTIME}} .
       - go test -fuzz=FuzzExplainTwoDims -fuzztime={{.FUZZTIME}} .
       - go test -fuzz=FuzzClosestTwoDims -fuzztime={{.FUZZTIME}} .
+      - go test -fuzz=FuzzTrieVsLinear -fuzztime={{.FUZZTIME}} .
 
   cover:
     desc: Run tests with coverage summary (per package + merged total)
