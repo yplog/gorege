@@ -7,6 +7,70 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.3.0] - 2026-03-29
+
+### Performance
+
+`Check` hot path gains a **Priority Multi-path Trie** (`trie.go`) that activates
+automatically when an engine has more than 150 rules and at least one declared
+dimension. Below that threshold the existing linear scan is used unchanged. No
+API or configuration changes are required.
+
+Measured on Apple M2 Pro, darwin/arm64, Go 1.26, `count=6` with `benchstat`,
+compared against v0.2.1.
+
+#### Rule scaling (`Check` at N=10…1000 rules)
+
+| N | v0.2.1 | v0.3.0 | Δ | Path |
+|---|--------|--------|---|------|
+| 10 | 92.8 ns | 92.9 ns | ~ | linear |
+| 100 | 761.5 ns | 762.6 ns | ~ | linear |
+| 150 | 1140 ns | 1133 ns | ~ | linear (threshold boundary) |
+| 200 | 1532 ns | 11.8 ns | −99.2% | trie |
+| 500 | 3723 ns | 11.7 ns | −99.7% | trie |
+| 1000 | 7342 ns | 11.7 ns | −99.8% | trie |
+
+Zero allocations on all rows preserved.
+
+> **Benchmark note:** the rule-scale fixture uses a single dimension with N
+> distinct exact values — a pathological case where every rule occupies a
+> unique leaf. In typical gorege configurations each dimension has 3–20 declared
+> values; the trie children per node are bounded by that count, not by the rule
+> count, so the O(D) characteristic holds in practice.
+
+#### Hot path and other methods
+
+All hot-path benchmarks (`Check`, `Explain`, `PartialCheck`, `Closest`,
+`ClosestIn`) are within noise of v0.2.1. Zero-allocation guarantees are
+unchanged. Overall geomean across the full benchmark suite: **−22.3%**.
+
+`New` (skip analysis) shows +1.2% due to trie construction; `New` with analysis
+is within noise.
+
+### Changed (internals)
+
+- **Priority Multi-path Trie** (`trie.go`) — `ruleTrieNode` stores per-node
+  `minRuleIdx` (the smallest reachable rule index in that subtree) enabling
+  subtree pruning during DFS search. `AnyOf` matchers expand into multiple child
+  paths at insert time. Children are stored as a `[]trieEntry` slice up to 16
+  entries (cache-friendly linear scan); beyond that the slice is promoted to a
+  `map[string]*ruleTrieNode` in-place, keeping lookup O(1) for large dimension
+  value sets.
+
+- **`eval` routing** — `Check` and `Explain` route through the trie when
+  `trieRoot != nil`. `PartialCheck` always uses the linear scan: its
+  trailing-dimension `unconstrainedMatch` semantics (DENY rules return `false`
+  for unconstrained positions) cannot be represented in the trie without
+  significant added complexity, and `PartialCheck` is not a hot path.
+
+- **Differential fuzz coverage** — `FuzzTrieVsLinear` in
+  `gorege_internal_test.go` verifies that trie search and linear scan produce
+  identical results across randomly generated rule sets with mixed `Exact`,
+  `Wildcard`, and `AnyOf` matchers (113 interesting inputs found, zero
+  mismatches in 60 s runs).
+
+---
+
 ## [0.2.1] - 2026-03-29
 
 ### Performance
@@ -110,6 +174,7 @@ The linear scaling characteristic is preserved; only the per-rule constant impro
 
 Initial public release.
 
+[0.3.0]: https://github.com/yplog/gorege/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/yplog/gorege/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yplog/gorege/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/yplog/gorege/releases/tag/v0.1.1

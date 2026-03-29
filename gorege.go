@@ -7,6 +7,7 @@ type Engine struct {
 	dims     []Dimension
 	rules    []Rule
 	tiebreak TiebreakStrategy
+	trieRoot *ruleTrieNode // nil: linear scan (small rule sets or no dimensions)
 }
 
 type engineConfig struct {
@@ -92,6 +93,9 @@ func New(opts ...Option) (*Engine, []Warning, error) {
 		dims:     cloneDimensions(cfg.dims),
 		rules:    cloneRules(cfg.rules),
 		tiebreak: tb,
+	}
+	if len(e.rules) > trieThreshold && len(e.dims) > 0 {
+		e.trieRoot = buildTrie(e.dims, e.rules)
 	}
 	return e, buildWarnings(cfg), nil
 }

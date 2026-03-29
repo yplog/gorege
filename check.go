@@ -59,6 +59,13 @@ func (e *Engine) PartialCheck(values ...string) (bool, error) {
 }
 
 func (e *Engine) eval(values []string, partial bool) (allowed bool, matched bool) {
+	if !partial && e.trieRoot != nil {
+		idx := e.trieRoot.search(values, 0)
+		if idx == noMatch {
+			return false, false
+		}
+		return e.rules[idx].act == ActionAllow, true
+	}
 	d := len(e.dims)
 	for _, r := range e.rules {
 		if ruleMatches(r, e.dims, d, values, partial) {
