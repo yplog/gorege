@@ -16,6 +16,29 @@ var curPool = sync.Pool{
 	},
 }
 
+// nextCombo advances combo[:k] to the next k-combination of {0..n-1} in
+// lexicographic (ascending index) order. Returns false when combo is already
+// the last combination [n-k, n-k+1, ..., n-1].
+// combo must be initialised to [0, 1, ..., k-1] before the first call.
+func nextCombo(combo []int, n int) bool {
+	k := len(combo)
+	if k == 0 {
+		return false
+	}
+	i := k - 1
+	for i >= 0 && combo[i] == n-k+i {
+		i--
+	}
+	if i < 0 {
+		return false
+	}
+	combo[i]++
+	for j := i + 1; j < k; j++ {
+		combo[j] = combo[j-1] + 1
+	}
+	return true
+}
+
 // Closest searches for a nearest allowed tuple using breadth-first Hamming
 // distance: distance 1, then 2, … until a candidate passes [Engine.Check].
 // Tiebreak controls subset and reporting order; the returned [ClosestResult]
@@ -28,15 +51,56 @@ func (e *Engine) Closest(values ...string) (*ClosestResult, error) {
 		return nil, nil
 	}
 	n := len(e.dims)
+	var comboStack [maxDims]int
+	var combo []int
+	if n <= maxDims {
+		combo = comboStack[:n]
+	} else {
+		combo = make([]int, n)
+	}
 	for k := 1; k <= n; k++ {
-		subs := combinations(n, k, e.tiebreak)
-		for _, subset := range subs {
-			if res := e.searchSubset(values, subset); res != nil {
+		if e.tiebreak == TiebreakRightmostDim {
+			if res := e.trySubsetsRightmost(values, n, k, 0, k, combo); res != nil {
 				return res, nil
+			}
+		} else {
+			for i := range k {
+				combo[i] = i
+			}
+			for {
+				if res := e.searchSubset(values, combo[:k]); res != nil {
+					return res, nil
+				}
+				if !nextCombo(combo[:k], n) {
+					break
+				}
 			}
 		}
 	}
 	return nil, nil
+}
+
+// trySubsetsRightmost visits k-subsets of {0..universe-1} into buf[start:start+k],
+// then tests buf[:kFull] in the same order as the former
+// combinations(universe, kFull, TiebreakRightmostDim). start and kFull are fixed
+// across recursion so the leaf always calls searchSubset with the full kFull-length prefix.
+func (e *Engine) trySubsetsRightmost(values []string, universe, k, start, kFull int, buf []int) *ClosestResult {
+	if k == 1 {
+		for v := universe - 1; v >= 0; v-- {
+			buf[start] = v
+			if res := e.searchSubset(values, buf[:kFull]); res != nil {
+				return res
+			}
+		}
+		return nil
+	}
+	for last := universe - 1; last >= k-1; last-- {
+		buf[start+k-1] = last
+		if res := e.trySubsetsRightmost(values, last, k-1, start, kFull, buf); res != nil {
+			return res
+		}
+	}
+	return nil
 }
 
 // ClosestIn restricts the search to a single dimension. dim may be a
@@ -128,64 +192,91 @@ func (e *Engine) resolveDim(dim any) (int, error) {
 	}
 }
 
+// searchSubsetDFS traverses the subset by DFS, mutating cur in-place and
+// restoring each slot on backtrack. Engine is read-only; cur is private to the
+// calling searchSubset frame.
+func searchSubsetDFS(e *Engine, input, cur []string, subset []int, pos int) *ClosestResult {
+	if pos == len(subset) {
+		ok, err := e.Check(cur...)
+		if err != nil || !ok {
+			return nil
+		}
+		return buildClosestResult(e, input, cur, subset)
+	}
+	di := subset[pos]
+	dim := e.dims[di]
+	for _, v := range dim.values {
+		if v == input[di] {
+			continue
+		}
+		cur[di] = v
+		if res := searchSubsetDFS(e, input, cur, subset, pos+1); res != nil {
+			return res
+		}
+		cur[di] = input[di]
+	}
+	return nil
+}
+
 func (e *Engine) searchSubset(input []string, subset []int) *ClosestResult {
 	d := len(input)
+	var ptr *[]string
 	var cur []string
-	var release func()
 	if d <= maxDims {
-		ptr := curPool.Get().(*[]string)
+		ptr = curPool.Get().(*[]string)
 		cur = (*ptr)[:d]
 		copy(cur, input)
-		release = func() {
-			*ptr = (*ptr)[:maxDims]
-			curPool.Put(ptr)
-		}
 	} else {
 		cur = append([]string(nil), input...)
-		release = func() {}
 	}
-	defer release()
-	// DFS reuses one cur slice: each branch assigns subset[pos], recurses, then
-	// restores that slot to input[di]. Indices in subset are distinct, so a
-	// dimension is not touched twice on the same path—restore is always input[di].
-	// Mutation stays inside this call’s cur (engine is read-only for Check).
-	var dfs func(pos int) *ClosestResult
-	dfs = func(pos int) *ClosestResult {
-		if pos == len(subset) {
-			ok, err := e.Check(cur...)
-			if err != nil || !ok {
-				return nil
-			}
-			return buildClosestResult(e, input, cur, subset)
-		}
-		di := subset[pos]
-		dim := e.dims[di]
-		for _, v := range dim.values {
-			if v == input[di] {
-				continue
-			}
-			cur[di] = v
-			if res := dfs(pos + 1); res != nil {
-				return res
-			}
-			cur[di] = input[di]
-		}
-		return nil
+	res := searchSubsetDFS(e, input, cur, subset, 0)
+	if ptr != nil {
+		*ptr = (*ptr)[:maxDims]
+		curPool.Put(ptr)
 	}
-	return dfs(0)
+	return res
 }
 
 func buildClosestResult(e *Engine, input, candidate []string, subset []int) *ClosestResult {
-	var diffs []int
-	seen := make([]bool, len(input))
+	if len(input) > maxDims {
+		return buildClosestResultDynamic(e, input, candidate, subset)
+	}
+	var seen [maxDims]bool
+	var diffs [maxDims]int
+	ndiffs := 0
 	for _, i := range subset {
 		seen[i] = true
 	}
 	for i := range input {
-		if !seen[i] {
-			continue
+		if seen[i] && candidate[i] != input[i] {
+			diffs[ndiffs] = i
+			ndiffs++
 		}
-		if candidate[i] != input[i] {
+	}
+	if ndiffs == 0 {
+		return nil
+	}
+	primary := pickPrimaryDim(diffs[:ndiffs], e.tiebreak)
+	d := e.dims[primary]
+	return &ClosestResult{
+		Conditions: append([]string(nil), candidate...),
+		// DFS assigns cur[di]=v where v!=input[di] for every di in subset,
+		// so all subset positions differ — distance equals ndiffs=len(subset).
+		Distance: ndiffs,
+		DimIndex: primary,
+		DimName:  d.name,
+		Value:    candidate[primary],
+	}
+}
+
+func buildClosestResultDynamic(e *Engine, input, candidate []string, subset []int) *ClosestResult {
+	seen := make([]bool, len(input))
+	var diffs []int
+	for _, i := range subset {
+		seen[i] = true
+	}
+	for i := range input {
+		if seen[i] && candidate[i] != input[i] {
 			diffs = append(diffs, i)
 		}
 	}
@@ -196,7 +287,7 @@ func buildClosestResult(e *Engine, input, candidate []string, subset []int) *Clo
 	d := e.dims[primary]
 	return &ClosestResult{
 		Conditions: append([]string(nil), candidate...),
-		Distance:   hammingDistance(input, candidate),
+		Distance:   len(diffs),
 		DimIndex:   primary,
 		DimName:    d.name,
 		Value:      candidate[primary],
@@ -223,58 +314,4 @@ func pickPrimaryDim(diffs []int, tb TiebreakStrategy) int {
 	default:
 		return slices.Min(diffs)
 	}
-}
-
-func combinations(n, k int, tb TiebreakStrategy) [][]int {
-	if k < 0 || k > n {
-		return nil
-	}
-	var out [][]int
-	var gen func(start, left int, cur []int)
-	gen = func(start, left int, cur []int) {
-		if left == 0 {
-			cp := append([]int(nil), cur...)
-			out = append(out, cp)
-			return
-		}
-		for i := start; i <= n-left; i++ {
-			gen(i+1, left-1, append(cur, i))
-		}
-	}
-	gen(0, k, nil)
-	switch tb {
-	case TiebreakRightmostDim:
-		slices.SortFunc(out, func(a, b []int) int {
-			ma, mb := maxOrZero(a), maxOrZero(b)
-			if ma != mb {
-				return mb - ma
-			}
-			for i := len(a) - 1; i >= 0; i-- {
-				if a[i] != b[i] {
-					return b[i] - a[i]
-				}
-			}
-			return 0
-		})
-	default:
-		// TiebreakLeftmostDim and TiebreakDeclOrder: lexicographic on indices.
-		slices.SortFunc(out, func(a, b []int) int {
-			for i := 0; i < len(a) && i < len(b); i++ {
-				if a[i] != b[i] {
-					return a[i] - b[i]
-				}
-			}
-			return len(a) - len(b)
-		})
-	}
-	return out
-}
-
-// maxOrZero uses [slices.Max] for non-empty slices; empty returns 0 so sort
-// comparators never panic (e.g. k==0 combinations).
-func maxOrZero(s []int) int {
-	if len(s) == 0 {
-		return 0
-	}
-	return slices.Max(s)
 }

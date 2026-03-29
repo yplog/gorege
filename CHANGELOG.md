@@ -7,6 +7,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Performance
+
+- **`Closest` allocations** — k-combination subsets are iterated in-place (`nextCombo`
+  for left/declaration tiebreak; recursive `trySubsetsRightmost` for rightmost,
+  matching the former sort order). `searchSubset` uses a package-level DFS with
+  explicit `sync.Pool` release (no closures). `buildClosestResult` uses stack
+  buffers when `len(input) ≤ maxDims`, with a heap fallback for larger arity.
+  `BenchmarkClosest` (2-dim deny/allow fixture, darwin/arm64, Go 1.26): ~344 B /
+  11 allocs/op → ~112 B / 2 allocs/op; latency ~344 ns → ~109 ns in local runs.
+
+---
+
 ## [0.2.0] - 2026-03-29
 
 ### Performance
