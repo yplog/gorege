@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/gorege.png" alt="gorege" width="400">
+  <img src=".github/logo.png" alt="gorege" width="400">
 </p>
 <p align="center">
   <a href="https://github.com/yplog/gorege/actions/workflows/ci.yml"><img src="https://github.com/yplog/gorege/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
