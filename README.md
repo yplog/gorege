@@ -181,6 +181,7 @@ Fuzz targets live in `fuzz_test.go`. Normal `go test` runs each fuzz function on
 
 ```
 gorege.go    Engine, New, options
+trie.go      Priority Multi-path Trie (activates when N > 150 rules)
 rule.go      Rules, matchers, Allow/Deny
 dimension.go Dimensions
 check.go     Check, PartialCheck, Explain
