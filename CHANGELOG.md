@@ -7,6 +7,46 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.0] - 2026-03-31
+
+### Fixed
+
+- **Trie wildcard semantics** — `Check` (and `Explain`) now correctly reject
+  undeclared dimension values when a rule uses `Wildcard`. Previously, when the
+  trie path was active, a `Wildcard` matcher at depth D would accept *any* input
+  string at that position, including values not declared for that dimension.
+  The linear scan was always correct (`matcher.matches` calls `dim.contains`);
+  the trie `search` method lacked the equivalent guard. The fix passes `dims`
+  through `search` and applies the same `dim.contains(input)` check before
+  descending into the wildcard child.
+
+  This bug was latent under v0.3.0 because the trie only activated for N > 150
+  rules; tests and the fuzz target (`FuzzTrieVsLinear`) operated on small
+  engines where the linear path was always taken. The always-trie change in
+  this release made the bug reachable with any rule count and surfaced it
+  immediately.
+
+### Performance
+
+- **Always-trie** — the `trieThreshold = 150` guard is removed. The Priority
+  Multi-path Trie now activates for every engine that has at least one dimension
+  and one rule. Benchmarks show the trie outperforms linear scan at all measured
+  N (crossover is below N = 10); `New()` overhead at N = 3 is +183 ns —
+  recovered after ~10 `Check()` calls. Zero-allocation hot path preserved.
+  Overall geomean across the full benchmark suite: **−19.0%**.
+
+- **`Closest` indirect speedup** — `Closest` D=2 −29%, D=3 −44% vs v0.3.0.
+  `searchSubsetDFS` calls `Check()` internally; the always-trie speedup
+  propagates through BFS candidate evaluation automatically.
+
+- **Regressions** — `New` construction overhead increases for small engines
+  previously below the threshold: `New_SkipAnalysis` (gym, 3 rules) +22%
+  latency / +34% allocs; `New_WithAnalysis` +10% / +31% allocs. Expected cost
+  of always-trie; recovered after ~10 `Check()` calls. High-dimension,
+  low-rule-count engines (`Scale_Dims` D=8, D=12) show +5% due to trie depth
+  traversal exceeding linear scan cost for N=1; typical production configs
+  (multiple rules, 3–20 values per dimension) are unaffected.
+
 ## [0.3.0] - 2026-03-29
 
 ### Performance
@@ -174,6 +214,7 @@ The linear scaling characteristic is preserved; only the per-rule constant impro
 
 Initial public release.
 
+[0.4.0]: https://github.com/yplog/gorege/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/yplog/gorege/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/yplog/gorege/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yplog/gorege/compare/v0.1.1...v0.2.0
