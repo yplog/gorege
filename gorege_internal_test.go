@@ -358,7 +358,7 @@ func FuzzTrieVsLinear(f *testing.F) {
 	f.Fuzz(func(t *testing.T, numDims, numVals, numRules int, lastDeny bool) {
 		numDims = clampInt(numDims, 1, 6)
 		numVals = clampInt(numVals, 2, 8)
-		numRules = clampInt(numRules, trieThreshold+1, 600)
+		numRules = clampInt(numRules, 1, 600)
 
 		dims := make([]Dimension, numDims)
 		for i := range dims {
@@ -402,7 +402,7 @@ func FuzzTrieVsLinear(f *testing.F) {
 			t.Skip("invalid engine:", err)
 		}
 		if eFull.trieRoot == nil {
-			t.Fatal("expected trie for large rule set")
+			t.Fatal("expected trie for non-empty engine")
 		}
 
 		input := make([]string, numDims)

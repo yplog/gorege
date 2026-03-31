@@ -61,7 +61,7 @@ func TestTrieSearchMatchesLinear(t *testing.T) {
 	}
 	for _, q := range queries {
 		want := firstMatchLinear(dims, rules, q)
-		got := root.search(q, 0)
+		got := root.search(q, dims, 0)
 		if got != want {
 			t.Fatalf("input=%v trie=%d linear=%d", q, got, want)
 		}
@@ -81,7 +81,7 @@ func TestTrieImplicitTrailingWildcard(t *testing.T) {
 	root := buildTrie(dims, rules)
 	q := []string{"x", "1"}
 	want := firstMatchLinear(dims, rules, q)
-	got := root.search(q, 0)
+	got := root.search(q, dims, 0)
 	if got != want {
 		t.Fatalf("trie=%d linear=%d", got, want)
 	}
@@ -97,7 +97,7 @@ func TestTrieWildcardBranchAndExactOrder(t *testing.T) {
 	root := buildTrie(dims, rules)
 	q := []string{"a", "p"}
 	want := firstMatchLinear(dims, rules, q)
-	got := root.search(q, 0)
+	got := root.search(q, dims, 0)
 	if got != want {
 		t.Fatalf("trie=%d linear=%d", got, want)
 	}
@@ -116,7 +116,7 @@ func TestTrieNoEarlyExitWhenMinIdxZeroButSuffixMismatch(t *testing.T) {
 	root := buildTrie(dims, rules)
 	q := []string{"a", "y"}
 	want := firstMatchLinear(dims, rules, q)
-	got := root.search(q, 0)
+	got := root.search(q, dims, 0)
 	if got != want {
 		t.Fatalf("trie=%d linear=%d (want rule 1 for input a,y)", got, want)
 	}
@@ -132,7 +132,7 @@ func TestTrieAnyOfFanOut(t *testing.T) {
 	root := buildTrie(dims, rules)
 	for _, q := range [][]string{{"a"}, {"b"}, {"c"}} {
 		want := firstMatchLinear(dims, rules, q)
-		got := root.search(q, 0)
+		got := root.search(q, dims, 0)
 		if got != want {
 			t.Fatalf("input=%v trie=%d linear=%d", q, got, want)
 		}

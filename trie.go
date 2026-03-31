@@ -2,9 +2,6 @@ package gorege
 
 const noMatch = -1
 
-// trieThreshold: rule counts above this build a priority trie for Check.
-const trieThreshold = 150
-
 // trieChildThreshold: above this many distinct exact child keys, slice is upgraded to a map.
 const trieChildThreshold = 16
 
@@ -13,7 +10,7 @@ type ruleTrieNode struct {
 	children []trieEntry
 	// childrenMap is used after the slice grows past trieChildThreshold; nil means slice path.
 	childrenMap map[string]*ruleTrieNode
-	wildcard *ruleTrieNode
+	wildcard    *ruleTrieNode
 	// minRuleIdx is the smallest rule index in this subtree; -1 if unset.
 	minRuleIdx int
 }
@@ -91,7 +88,7 @@ func (n *ruleTrieNode) insert(dims []Dimension, rule Rule, ruleIdx, depth int) {
 }
 
 // search returns the first-match rule index for values, or noMatch.
-func (n *ruleTrieNode) search(values []string, depth int) int {
+func (n *ruleTrieNode) search(values []string, dims []Dimension, depth int) int {
 	d := len(values)
 	if depth == d {
 		return n.minRuleIdx
@@ -116,7 +113,7 @@ func (n *ruleTrieNode) search(values []string, depth int) int {
 	if exactChild != nil &&
 		(best == noMatch || exactChild.minRuleIdx < best) &&
 		exactChild.minRuleIdx != noMatch {
-		res := exactChild.search(values, depth+1)
+		res := exactChild.search(values, dims, depth+1)
 		if res != noMatch && (best == noMatch || res < best) {
 			best = res
 			if best == 0 {
@@ -126,11 +123,14 @@ func (n *ruleTrieNode) search(values []string, depth int) int {
 	}
 
 	if n.wildcard != nil {
-		wc := n.wildcard
-		if wc.minRuleIdx != noMatch && (best == noMatch || wc.minRuleIdx < best) {
-			res := wc.search(values, depth+1)
-			if res != noMatch && (best == noMatch || res < best) {
-				best = res
+		dim := dims[depth]
+		if len(dim.values) == 0 || dim.contains(input) {
+			wc := n.wildcard
+			if wc.minRuleIdx != noMatch && (best == noMatch || wc.minRuleIdx < best) {
+				res := wc.search(values, dims, depth+1)
+				if res != noMatch && (best == noMatch || res < best) {
+					best = res
+				}
 			}
 		}
 	}

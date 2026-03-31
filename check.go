@@ -60,7 +60,7 @@ func (e *Engine) PartialCheck(values ...string) (bool, error) {
 
 func (e *Engine) eval(values []string, partial bool) (allowed bool, matched bool) {
 	if !partial && e.trieRoot != nil {
-		idx := e.trieRoot.search(values, 0)
+		idx := e.trieRoot.search(values, e.dims, 0)
 		if idx == noMatch {
 			return false, false
 		}
