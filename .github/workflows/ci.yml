@@ -14,12 +14,12 @@ jobs:
       - run: go test -coverprofile=coverage.out ./...
       - name: Build examples
         run: |
-          cd examples/feature_flags && go build ./...
-          cd examples/ecommerce_availability && go build ./...
+          (cd examples/feature_flags && go build ./...)
+          (cd examples/ecommerce_availability && go build ./...)
       - name: Vet examples
         run: |
-          cd examples/feature_flags && go vet ./...
-          cd examples/ecommerce_availability && go vet ./...
+          (cd examples/feature_flags && go vet ./...)
+          (cd examples/ecommerce_availability && go vet ./...)
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
