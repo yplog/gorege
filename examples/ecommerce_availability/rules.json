@@ -1,0 +1,40 @@
+{
+  "dimensions": [
+    { "name": "region", "values": ["tr", "eu", "us"] },
+    { "name": "tier", "values": ["standard", "premium", "vip"] },
+    { "name": "channel", "values": ["web", "mobile", "api"] },
+    { "name": "category", "values": ["electronics", "clothing", "food"] }
+  ],
+  "rules": [
+    {
+      "action": "ALLOW",
+      "name": "allow-vip-everywhere",
+      "conditions": ["*", "vip", "*", "*"]
+    },
+    {
+      "action": "DENY",
+      "name": "deny-eu-api-food",
+      "conditions": ["eu", "*", "api", "food"]
+    },
+    {
+      "action": "DENY",
+      "name": "deny-tr-standard-mobile-electronics",
+      "conditions": ["tr", "standard", "mobile", "electronics"]
+    },
+    {
+      "action": "DENY",
+      "name": "deny-standard-api",
+      "conditions": ["*", "standard", "api", "*"]
+    },
+    {
+      "action": "ALLOW",
+      "name": "allow-premium-everywhere",
+      "conditions": ["*", "premium", "*", "*"]
+    },
+    {
+      "action": "ALLOW",
+      "name": "allow-standard-web-mobile",
+      "conditions": ["*", "standard", ["web", "mobile"], "*"]
+    }
+  ]
+}
