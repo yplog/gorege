@@ -13,10 +13,6 @@ coverage.out
 coverage.html
 *.coverprofile
 
-# Go workspace (optional)
-go.work
-go.work.sum
-
 # Dependency dirs (if vendoring)
 vendor/
 
@@ -38,3 +34,7 @@ Thumbs.db
 
 # mise local overrides (optional; remove if you commit them)
 # .mise.local.toml
+
+# Examples
+examples/**/feature-flags
+examples/**/ecommerce-availability

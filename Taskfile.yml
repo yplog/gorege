@@ -72,9 +72,36 @@ tasks:
       - golangci-lint run ./...
 
   ci:
-    desc: Typical CI sequence (fmt check, vet, test, build)
+    desc: Typical CI sequence (fmt check, vet, test, build, examples)
     cmds:
       - test -z "$(gofmt -l .)"
       - task: vet
       - task: test
       - task: build
+      - task: examples-build
+      - task: examples-vet
+
+  examples-build:
+    desc: Build all examples (compilation check)
+    cmds:
+      - cd examples/feature_flags && go build ./...
+      - cd examples/ecommerce_availability && go build ./...
+
+  examples-run:
+    desc: Run all examples (smoke test)
+    cmds:
+      - cd examples/feature_flags && go run . rules.json
+      - cd examples/ecommerce_availability && go run . rules.json
+
+  examples-vet:
+    desc: go vet on all examples
+    cmds:
+      - cd examples/feature_flags && go vet ./...
+      - cd examples/ecommerce_availability && go vet ./...
+
+  examples:
+    desc: Build + vet + run all examples
+    cmds:
+      - task: examples-build
+      - task: examples-vet
+      - task: examples-run

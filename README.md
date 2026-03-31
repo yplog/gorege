@@ -163,6 +163,21 @@ gorege lint path/to/rules.json                    # dead/shadow warnings (or "ok
 
 `closest` walks increasing Hamming distance and may change several dimensions at once (`Engine.Closest`). `closest-in` only tries alternate values on one axis (`Engine.ClosestIn`). Both print `found`, `conditions` (JSON array), `distance` (Hamming distance from the input tuple), `dim_index`, `dim_name`, and `value` for the reported pivot dimension. `found: false` uses exit code `1`. For `closest-in`, a numeric-only selector is treated as a dimension index; otherwise it is resolved as a name (same as the library).
 
+## Examples
+
+The [`examples/`](./examples) directory contains self-contained runnable
+programs demonstrating real-world usage patterns.
+
+| Example | Scenario | API surface |
+|---------|----------|-------------|
+| [`feature_flags/`](./examples/feature_flags) | Feature gate by plan x region | `LoadFileWithOptions`, `Check`, `PartialCheck`, `ClosestIn` |
+| [`ecommerce_availability/`](./examples/ecommerce_availability) | Product variant availability by region x tier x channel x category | `Check`, `Explain`, `PartialCheck`, `Closest`, `ClosestIn`, hot reload via `atomic.Pointer` |
+
+```bash
+cd examples/feature_flags && go run . rules.json
+cd examples/ecommerce_availability && go run . rules.json
+```
+
 ## Development
 
 This repo uses **[mise](https://mise.jdx.dev/)** for pinned Go (see `mise.toml`) and **[Task](https://taskfile.dev/)** for common commands:

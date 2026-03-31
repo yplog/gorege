@@ -1,0 +1,23 @@
+{
+  "dimensions": [
+    { "name": "plan", "values": ["free", "pro", "enterprise"] },
+    { "name": "region", "values": ["eu", "us", "apac"] }
+  ],
+  "rules": [
+    {
+      "action": "DENY",
+      "name": "deny-free-eu-gdpr",
+      "conditions": ["free", "eu"]
+    },
+    {
+      "action": "ALLOW",
+      "name": "allow-paid-all-regions",
+      "conditions": [["pro", "enterprise"], "*"]
+    },
+    {
+      "action": "DENY",
+      "name": "deny-free-all-regions",
+      "conditions": ["free", "*"]
+    }
+  ]
+}
