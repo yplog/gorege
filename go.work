@@ -4,4 +4,5 @@ use (
 	.
 	./examples/ecommerce_availability
 	./examples/feature_flags
+	./examples/http_authz
 )

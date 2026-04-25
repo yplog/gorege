@@ -25,6 +25,33 @@ Design goals: idiomatic Go, immutable engines safe for concurrent use, explicit 
 go get github.com/yplog/gorege
 ```
 
+## Stability
+
+`gorege` follows [Semantic Versioning](https://semver.org/). The 1.x
+line guarantees backward-compatible source for:
+
+- All exported identifiers under `github.com/yplog/gorege`.
+- The `cmd/gorege` CLI subcommand surface and their flags
+  (`check`, `explain`, `closest`, `closest-in`, `partial-check`,
+  `lint`, `diff`).
+- The JSON config schema under `schema/gorege-config.schema.json`
+  (existing fields keep their meaning; new optional fields may be added).
+- The `--format json` output shape of `gorege diff`.
+
+What is **not** covered:
+
+- Internal packages (none currently exist; if added, they will live
+  under `internal/`).
+- Performance characteristics. Optimizations may change allocation
+  counts, latency, or memory layout in any release.
+- The set of warnings produced for a given engine. New `WarningKind`
+  values may appear; callers should switch on `Kind` and ignore unknown
+  kinds.
+- Human-readable text output of `gorege diff --format text`.
+
+Major-version bumps (2.0, 3.0, …) will use the standard Go module suffix
+(`/v2`, `/v3`) so old code keeps compiling against the old import path.
+
 ## Quick start
 
 ```go
@@ -108,6 +135,24 @@ Evaluation is **first match wins**. If nothing matches, `Check` returns `false`.
 - A JSON array of strings in a slot is `AnyOf`.
 - Omit `name` on a dimension to get an anonymous axis (`DimValues`-style).
 
+### Editor support
+
+Add `$schema` to your config files for autocomplete and inline validation in
+any JSON-Schema-aware editor (VS Code, JetBrains, neovim+coc, ...):
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/yplog/gorege/v1.0.0/schema/gorege-config.schema.json",
+  "dimensions": [],
+  "rules": []
+}
+```
+
+Pin the URL to a release tag to avoid breakage from in-progress schema
+changes on `main`. The `$schema` field is ignored by the loader
+(`gorege` uses `encoding/json` decoding into a struct without a `$schema`
+field, so unknown keys are silently dropped).
+
 On `New`, `Load`, `LoadWithOptions`, or `LoadFileWithOptions`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Dead detection does not enumerate the product; shadow detection does, subject to a tuple cap. Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
 
 > **Performance note:** Shadowed-rule analysis walks the Cartesian product of declared dimension values. With large dimension sets (e.g. 6 dimensions × 20 values = 64 000 000 tuples) this can be slow. The default cap is 100 000 tuples for that pass; use `WithAnalysisLimit(n)` with `New` or `LoadWithOptions` / `LoadFileWithOptions` to adjust, or pass a negative value to skip analysis entirely. When the cap is exceeded, dead rules are still reported.
@@ -155,9 +200,12 @@ gorege closest path/to/rules.json Guest Wed Sauna # nearest allowed tuple (BFS);
 gorege closest-in path/to/rules.json 2 Guest Wed Sauna   # same, varying only dim index 2
 gorege closest-in path/to/rules.json facility Guest Wed Sauna # or dimension name
 gorege lint path/to/rules.json                    # dead/shadow warnings (or "ok"); exit 1 if any warnings
+gorege diff old.json new.json                     # decision diff over Cartesian product; exit 1 on allow/deny change
+gorege diff old.json new.json --limit 250000      # raise the tuple cap
+gorege diff old.json new.json --format json       # full transition list as JSON (pipeable to jq)
 ```
 
-**Where loader warnings go:** For `check`, `explain`, `partial-check`, `closest`, and `closest-in`, the main result is on **stdout** (for example `true`/`false` or `explain` fields), so engine load warnings (dead rules, shadowed rules, analysis limit, …) are printed to **stderr** as secondary output. **`lint`** is the opposite: those warnings *are* the intended output, so each message is printed to **stdout** (or `ok` when there are none), which keeps `lint` easy to pipe or scrape; load errors still go to **stderr**.
+**Where loader warnings go:** For `check`, `explain`, `partial-check`, `closest`, `closest-in`, and `diff`, the main result is on **stdout** (for example `true`/`false` or `explain` fields), so engine load warnings (dead rules, shadowed rules, analysis limit, ...) are printed to **stderr** as secondary output. **`lint`** is the opposite: those warnings *are* the intended output, so each message is printed to **stdout** (or `ok` when there are none), which keeps `lint` easy to pipe or scrape; load errors still go to **stderr**.
 
 `explain` prints `matched`, `allowed`, `rule_index`, `rule_name`, and `action` (or a line for implicit deny when no rule matches). Exit code stays `0` when the explanation was computed successfully.
 
@@ -172,10 +220,12 @@ programs demonstrating real-world usage patterns.
 |---------|----------|-------------|
 | [`feature_flags/`](./examples/feature_flags) | Feature gate by plan x region | `LoadFileWithOptions`, `Check`, `PartialCheck`, `ClosestIn` |
 | [`ecommerce_availability/`](./examples/ecommerce_availability) | Product variant availability by region x tier x channel x category | `Check`, `Explain`, `PartialCheck`, `Closest`, `ClosestIn`, hot reload via `atomic.Pointer` |
+| [`http_authz/`](./examples/http_authz) | RBAC-style HTTP middleware over (role x method x resource) | `LoadFileWithOptions`, `Explain`, `Check`, `atomic.Pointer` hot reload, `SIGHUP` |
 
 ```bash
 cd examples/feature_flags && go run . rules.json
 cd examples/ecommerce_availability && go run . rules.json
+cd examples/http_authz && go run . rules.json
 ```
 
 ## Development
