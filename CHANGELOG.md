@@ -7,6 +7,27 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.5.0] - 2026-04-25
+
+### Performance
+
+- **`ClosestIn` allocation reduction** — the working candidate slice is now
+  managed via `curPool` (the same `sync.Pool` used by `searchSubset`),
+  eliminating one heap allocation per call when `len(values) <= 16`.
+  `Distance` in the returned `ClosestResult` is now assigned the constant `1`
+  instead of calling `hammingDistance`; `ClosestIn` always changes exactly one
+  dimension by construction, so the O(n) scan was redundant.
+  `Closest` (D=1–3) is unaffected — no change to `searchSubset` or
+  `searchSubsetDFS`.
+
+  Measured on Apple M2 Pro, darwin/arm64, Go 1.26, `count=6` with `benchstat`,
+  compared against v0.4.0:
+
+  | Benchmark | v0.4.0 | v0.5.0 | Δ ns/op | Δ B/op | Δ allocs |
+  |-----------|--------|--------|---------|--------|----------|
+  | `ClosestIn` — by name  | 177.8 ns / 176 B / 3 allocs | 157.9 ns / 128 B / 2 allocs | −11.2% | −27% | −1 |
+  | `ClosestIn` — by index | 175.7 ns / 176 B / 3 allocs | 154.5 ns / 128 B / 2 allocs | −12.0% | −27% | −1 |
+
 ## [0.4.0] - 2026-03-31
 
 ### Fixed
@@ -214,6 +235,7 @@ The linear scaling characteristic is preserved; only the per-rule constant impro
 
 Initial public release.
 
+[0.5.0]: https://github.com/yplog/gorege/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/yplog/gorege/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/yplog/gorege/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/yplog/gorege/compare/v0.2.0...v0.2.1
