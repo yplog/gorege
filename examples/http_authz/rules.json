@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/yplog/gorege/v1.0.0/schema/gorege-config.schema.json",
+  "dimensions": [
+    { "name": "role", "values": ["admin", "editor", "viewer", "anonymous"] },
+    { "name": "method", "values": ["GET", "POST", "PUT", "DELETE"] },
+    { "name": "resource", "values": ["users", "posts", "settings", "health"] }
+  ],
+  "rules": [
+    { "action": "ALLOW", "name": "health-public", "conditions": ["*", "GET", "health"] },
+    { "action": "ALLOW", "name": "admin-everything", "conditions": ["admin", "*", "*"] },
+    { "action": "ALLOW", "name": "editor-posts-write", "conditions": ["editor", ["POST", "PUT"], "posts"] },
+    { "action": "ALLOW", "name": "viewer-read", "conditions": [["editor", "viewer"], "GET", ["posts", "users"]] },
+    { "action": "DENY", "name": "deny-anon-writes", "conditions": ["anonymous", ["POST", "PUT", "DELETE"], "*"] },
+    { "action": "ALLOW", "name": "anon-read-posts", "conditions": ["anonymous", "GET", "posts"] }
+  ]
+}

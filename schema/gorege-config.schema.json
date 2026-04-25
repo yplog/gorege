@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yplog/gorege/schema/gorege-config.schema.json",
+  "title": "gorege rule engine configuration",
+  "description": "Schema for gorege Config (loader.go). Validates structure only; semantic checks (dead/shadow rules, unknown dimension values) run at engine construction.",
+  "type": "object",
+  "required": [
+    "dimensions",
+    "rules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "dimensions": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "$ref": "#/$defs/dimension"
+      }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    }
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "required": [
+        "values"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Dimension name; empty or omitted = anonymous (DimValues)."
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Declared values. Empty array means 'any string accepted at this slot' (loader.go semantics)."
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": [
+        "action",
+        "conditions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "ALLOW",
+            "DENY"
+          ],
+          "description": "Case-sensitive; loader rejects other values with 'invalid action'."
+        },
+        "name": {
+          "type": "string",
+          "description": "Optional human-readable rule name; surfaces in Explanation.RuleName and warnings."
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/matcher"
+          },
+          "description": "One matcher per dimension, in declaration order. Shorter arrays implicitly wildcard trailing dimensions."
+        }
+      }
+    },
+    "matcher": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Exact value, or '*' (with optional surrounding whitespace) for Wildcard."
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "AnyOf list; matches if input equals any element."
+        }
+      ]
+    }
+  }
+}

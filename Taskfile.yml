@@ -81,23 +81,31 @@ tasks:
       - task: examples-build
       - task: examples-vet
 
+  lint-schema:
+    desc: Validate testdata/*.json against schema/gorege-config.schema.json (requires `npx ajv-cli`)
+    cmds:
+      - npx --yes ajv-cli validate -c ajv-formats -s schema/gorege-config.schema.json -d "testdata/*.json"
+
   examples-build:
     desc: Build all examples (compilation check)
     cmds:
       - cd examples/feature_flags && go build ./...
       - cd examples/ecommerce_availability && go build ./...
+      - cd examples/http_authz && go build ./...
 
   examples-run:
-    desc: Run all examples (smoke test)
+    desc: Run non-server examples (smoke test)
     cmds:
       - cd examples/feature_flags && go run . rules.json
       - cd examples/ecommerce_availability && go run . rules.json
+      # http_authz is a long-running server; smoke test is build+vet only.
 
   examples-vet:
     desc: go vet on all examples
     cmds:
       - cd examples/feature_flags && go vet ./...
       - cd examples/ecommerce_availability && go vet ./...
+      - cd examples/http_authz && go vet ./...
 
   examples:
     desc: Build + vet + run all examples

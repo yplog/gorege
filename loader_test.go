@@ -134,6 +134,23 @@ func TestLoadJSONWildcardTrimmed(t *testing.T) {
 	}
 }
 
+func TestLoadIgnoresSchemaField(t *testing.T) {
+	t.Parallel()
+	doc := `{
+  "$schema": "https://example.com/schema.json",
+  "dimensions": [{"name":"x","values":["a"]}],
+  "rules": [{"action":"ALLOW","conditions":["a"]}]
+}`
+	e, _, err := gorege.Load(strings.NewReader(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, err := e.Check("a")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+}
+
 func TestLoadFileExampleFixtures(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

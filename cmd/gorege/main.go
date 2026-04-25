@@ -31,6 +31,8 @@ func realMain(args []string) int {
 		return runLint(args[2:])
 	case "partial-check":
 		return runPartialCheck(args[2:])
+	case "diff":
+		return runDiff(args[2:])
 	default:
 		usage()
 		return 2
@@ -44,8 +46,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "       gorege closest-in <config.json> <dim-index-or-name> <dim values...>")
 	fmt.Fprintln(os.Stderr, "       gorege lint <config.json>")
 	fmt.Fprintln(os.Stderr, "       gorege partial-check <config.json> [<dim values...>]")
+	fmt.Fprintln(os.Stderr, "       gorege diff <old.json> <new.json> [--limit N] [--format text|json]")
 	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "Loader warnings: stderr for check, explain, partial-check, closest, closest-in (secondary to stdout).")
+	fmt.Fprintln(os.Stderr, "Loader warnings: stderr for check, explain, partial-check, closest, closest-in, diff (secondary to stdout).")
 	fmt.Fprintln(os.Stderr, "                stdout for lint (primary output; \"ok\" when clean). Errors always on stderr.")
 }
 

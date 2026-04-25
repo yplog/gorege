@@ -44,6 +44,14 @@ func TestRealMainDispatchesSubcommands(t *testing.T) {
 	if err := os.WriteFile(simple, []byte(`{"dimensions":[{"name":"x","values":["a"]}],"rules":[{"action":"ALLOW","conditions":["a"]}]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	diffOld := filepath.Join(dir, "diff-old.json")
+	if err := os.WriteFile(diffOld, []byte(`{"dimensions":[{"name":"x","values":["a","b"]}],"rules":[{"action":"ALLOW","conditions":["a"]}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	diffNew := filepath.Join(dir, "diff-new.json")
+	if err := os.WriteFile(diffNew, []byte(`{"dimensions":[{"name":"x","values":["a","b"]}],"rules":[{"action":"ALLOW","conditions":["b"]}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	cases := []struct {
 		args []string
@@ -56,6 +64,7 @@ func TestRealMainDispatchesSubcommands(t *testing.T) {
 		{[]string{"gorege", "lint", simple}, 0},
 		{[]string{"gorege", "partial-check", path}, 0},
 		{[]string{"gorege", "partial-check", simple, "a"}, 0},
+		{[]string{"gorege", "diff", diffOld, diffNew}, 1},
 	}
 	for _, tc := range cases {
 		rOut, wOut, err := os.Pipe()

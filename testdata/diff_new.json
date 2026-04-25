@@ -1,0 +1,11 @@
+{
+  "dimensions": [
+    { "name": "role", "values": ["admin", "user", "guest"] },
+    { "name": "action", "values": ["read", "write"] }
+  ],
+  "rules": [
+    { "action": "ALLOW", "name": "admin-all", "conditions": ["admin", "*"] },
+    { "action": "ALLOW", "name": "user-write", "conditions": ["user", "write"] },
+    { "action": "DENY", "name": "deny-rest", "conditions": ["*", "*"] }
+  ]
+}

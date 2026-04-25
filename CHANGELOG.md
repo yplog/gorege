@@ -7,6 +7,56 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.0.0] - 2026-04-25
+
+### Stability commitment
+
+This release marks the public API as stable. The 1.x line guarantees
+backward-compatible source for:
+
+- All exported identifiers under `github.com/yplog/gorege`.
+- The `cmd/gorege` CLI subcommand surface and their flags
+  (`check`, `explain`, `closest`, `closest-in`, `partial-check`,
+  `lint`, `diff`).
+- The JSON config schema at `schema/gorege-config.schema.json`
+  (existing fields keep their meaning; new optional fields may be added).
+- The `--format json` output shape of `gorege diff`.
+
+What is **not** covered:
+
+- Internal packages (none currently exist; if added, they will live
+  under `internal/`).
+- Performance characteristics. Optimizations may change allocation
+  counts, latency, or memory layout in any release.
+- The set of warnings produced for a given engine. New `WarningKind`
+  values may appear; callers should switch on `Kind` and ignore unknown
+  kinds.
+- The human-readable text output of `gorege diff --format text`. Only
+  the JSON shape is contract.
+
+Per Go's [module compatibility rules][compat] and [SemVer][semver],
+breaking changes will use a new module path (`/v2`).
+
+[compat]: https://go.dev/doc/modules/release-workflow#breaking
+[semver]: https://semver.org/spec/v2.0.0.html
+
+### Cumulative since v0.5.0
+
+This release includes the cumulative work that was previously planned for
+the 0.6-0.8 line:
+
+- Added JSON Schema for config validation in editors
+  (`schema/gorege-config.schema.json`).
+- Added HTTP authorization middleware example
+  (`examples/http_authz/`).
+- Added `gorege diff` CLI subcommand for decision-level comparison
+  between two rule files.
+
+### Changed
+
+- README and `examples/http_authz/rules.json` schema URL pin bumped
+  from `v0.6.0` to `v1.0.0`.
+
 ## [0.5.0] - 2026-04-25
 
 ### Performance
@@ -235,6 +285,7 @@ The linear scaling characteristic is preserved; only the per-rule constant impro
 
 Initial public release.
 
+[1.0.0]: https://github.com/yplog/gorege/compare/v0.5.0...v1.0.0
 [0.5.0]: https://github.com/yplog/gorege/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/yplog/gorege/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/yplog/gorege/compare/v0.2.1...v0.3.0
