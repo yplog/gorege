@@ -119,30 +119,48 @@ func (e *Engine) ClosestIn(dim any, values ...string) (*ClosestResult, error) {
 		return nil, nil
 	}
 	input := values
+	nd := len(input)
 	d := e.dims[di]
-	cand := append([]string(nil), input...)
+	var ptr *[]string
+	var cand []string
+	if nd <= maxDims {
+		ptr = curPool.Get().(*[]string)
+		cand = (*ptr)[:nd]
+		copy(cand, input)
+	} else {
+		cand = append([]string(nil), input...)
+	}
+
+	var res *ClosestResult
+	var checkErr error
 	for _, v := range d.values {
 		if v == input[di] {
 			continue
 		}
 		cand[di] = v
-		ok, err := e.Check(cand...)
-		if err != nil {
-			return nil, err
+		ok, err2 := e.Check(cand...)
+		if err2 != nil {
+			checkErr = err2
+			break
 		}
 		if !ok {
 			cand[di] = input[di]
 			continue
 		}
-		return &ClosestResult{
+		res = &ClosestResult{
 			Conditions: append([]string(nil), cand...),
-			Distance:   hammingDistance(input, cand),
+			Distance:   1,
 			DimIndex:   di,
 			DimName:    d.name,
 			Value:      v,
-		}, nil
+		}
+		break
 	}
-	return nil, nil
+	if ptr != nil {
+		*ptr = (*ptr)[:maxDims]
+		curPool.Put(ptr)
+	}
+	return res, checkErr
 }
 
 func (e *Engine) resolveDim(dim any) (int, error) {
