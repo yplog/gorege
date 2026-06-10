@@ -242,11 +242,15 @@ func TestLoadWithOptionsAnalysisLimitExceeded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(warnings) != 1 || warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded {
+	if len(warnings) != 2 ||
+		warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded ||
+		warnings[1].Kind != gorege.WarningKindAnalysisLimitExceeded {
 		t.Fatalf("got %v", warnings)
 	}
-	if want := "rule 1"; !strings.Contains(warnings[0].Message, want) {
-		t.Fatalf("message %q should contain %q", warnings[0].Message, want)
+	for i, want := range []string{"rule 0", "rule 1"} {
+		if !strings.Contains(warnings[i].Message, want) {
+			t.Fatalf("message %q should contain %q", warnings[i].Message, want)
+		}
 	}
 }
 

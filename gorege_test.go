@@ -142,7 +142,7 @@ func TestAnalysisLimitExceeded(t *testing.T) {
 		t.Fatalf("expected AnalysisLimitExceeded warning, got %v", warnings)
 	}
 	if got := warnings[len(warnings)-1].Message; !strings.Contains(got, "rule 1") ||
-		!strings.Contains(got, "remaining shadow statuses are unchecked") {
+		!strings.Contains(got, "effective product exceeds the remaining tuple budget") {
 		t.Fatalf("unexpected limit warning: %q", got)
 	}
 }
@@ -292,8 +292,111 @@ func TestWildcardShadowConsumesGlobalBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(warnings) != 2 {
+		t.Fatalf("expected one unchecked warning per wildcard rule, got %v", warnings)
+	}
+	for i, warning := range warnings {
+		if warning.Kind != gorege.WarningKindAnalysisLimitExceeded ||
+			!strings.Contains(warning.Message, []string{"rule 0", "rule 1"}[i]) {
+			t.Fatalf("warning %d does not identify its unchecked rule: %v", i, warning)
+		}
+	}
+}
+
+func TestInfeasibleRuleDoesNotConsumeBudgetAndLaterExactRuleIsAnalyzed(t *testing.T) {
+	t.Parallel()
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(1),
+		gorege.WithDimensions(
+			gorege.DimValues("a", "b"),
+			gorege.DimValues("x", "y"),
+		),
+		gorege.WithRules(
+			gorege.Allow(gorege.Wildcard, gorege.Wildcard),
+			gorege.Deny("a", "x"),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 2 ||
+		warnings[0].Kind != gorege.WarningKindShadowed ||
+		warnings[1].Kind != gorege.WarningKindAnalysisLimitExceeded ||
+		!strings.Contains(warnings[1].Message, "rule 0") {
+		t.Fatalf("later exact rule was not analyzed after infeasible rule: %v", warnings)
+	}
+}
+
+func TestMultipleInfeasibleRulesProduceLabeledWarnings(t *testing.T) {
+	t.Parallel()
+	first := gorege.Allow(gorege.Wildcard, gorege.Wildcard)
+	first.Name = "first"
+	second := gorege.Deny(gorege.AnyOf("a", "b"), gorege.Wildcard)
+	second.Name = "second"
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(1),
+		gorege.WithDimensions(
+			gorege.DimValues("a", "b"),
+			gorege.DimValues("x", "y"),
+		),
+		gorege.WithRules(first, second),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 2 ||
+		!strings.Contains(warnings[0].Message, "rule 0 (first)") ||
+		!strings.Contains(warnings[1].Message, "rule 1 (second)") {
+		t.Fatalf("unchecked warnings are not labeled in rule order: %v", warnings)
+	}
+}
+
+func TestEffectiveProductFeasibilityBoundary(t *testing.T) {
+	t.Parallel()
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(2),
+		gorege.WithDimensions(
+			gorege.DimValues("a", "b", "c"),
+			gorege.DimValues("x", "y"),
+		),
+		gorege.WithRules(
+			gorege.Allow(gorege.Wildcard, gorege.Wildcard),
+			gorege.Deny(gorege.AnyOf("a", "b"), "x"),
+			gorege.Deny(gorege.AnyOf("a", "b", "c"), "y"),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 3 ||
+		warnings[0].Kind != gorege.WarningKindShadowed ||
+		!strings.Contains(warnings[0].Message, "rule 1") ||
+		warnings[1].Kind != gorege.WarningKindAnalysisLimitExceeded ||
+		!strings.Contains(warnings[1].Message, "rule 0") ||
+		warnings[2].Kind != gorege.WarningKindAnalysisLimitExceeded ||
+		!strings.Contains(warnings[2].Message, "rule 2") {
+		t.Fatalf("product == remaining should run and remaining+1 should skip: %v", warnings)
+	}
+}
+
+func TestOverflowingEffectiveProductIsUnchecked(t *testing.T) {
+	t.Parallel()
+	dims := make([]gorege.Dimension, 64)
+	parts := make([]any, 64)
+	for i := range dims {
+		dims[i] = gorege.DimValues("0", "1")
+		parts[i] = gorege.Wildcard
+	}
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(1),
+		gorege.WithDimensions(dims...),
+		gorege.WithRules(gorege.Allow(parts...)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(warnings) != 1 || warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded {
-		t.Fatalf("expected budget warning for incomplete wildcard shadow check, got %v", warnings)
+		t.Fatalf("overflowing effective product should be unchecked: %v", warnings)
 	}
 }
 
@@ -335,6 +438,31 @@ func TestKnownShadowWarningsPrecedeLimitWarning(t *testing.T) {
 	if len(warnings) != 2 ||
 		warnings[0].Kind != gorege.WarningKindShadowed ||
 		warnings[1].Kind != gorege.WarningKindAnalysisLimitExceeded {
+		t.Fatalf("warning order mismatch: %v", warnings)
+	}
+}
+
+func TestWarningOrderDeadShadowedThenUnchecked(t *testing.T) {
+	t.Parallel()
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(1),
+		gorege.WithDimensions(
+			gorege.DimValues("a", "b"),
+			gorege.DimValues("x", "y"),
+		),
+		gorege.WithRules(
+			gorege.Allow(gorege.AnyOf(), gorege.Wildcard),
+			gorege.Allow(gorege.Wildcard, gorege.Wildcard),
+			gorege.Deny("a", "x"),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 3 ||
+		warnings[0].Kind != gorege.WarningKindDead ||
+		warnings[1].Kind != gorege.WarningKindShadowed ||
+		warnings[2].Kind != gorege.WarningKindAnalysisLimitExceeded {
 		t.Fatalf("warning order mismatch: %v", warnings)
 	}
 }
@@ -387,6 +515,27 @@ func TestAnalysisLimitProductEqualToLimitStillAnalyzes(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected shadowed warning, got %v", warnings)
+	}
+}
+
+func TestGlobalProductWithinLimitUsesCartesianAnalysis(t *testing.T) {
+	t.Parallel()
+	_, warnings, err := gorege.New(
+		gorege.WithAnalysisLimit(2),
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(
+			gorege.Allow(gorege.Wildcard),
+			gorege.Deny(gorege.Wildcard),
+			gorege.Allow(gorege.Wildcard),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 2 ||
+		warnings[0].Kind != gorege.WarningKindShadowed ||
+		warnings[1].Kind != gorege.WarningKindShadowed {
+		t.Fatalf("global product <= limit must use complete Cartesian analysis: %v", warnings)
 	}
 }
 

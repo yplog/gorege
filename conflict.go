@@ -12,8 +12,9 @@ const (
 	// WarningKindShadowed means the rule matches some tuple but never wins
 	// first-match against earlier rules.
 	WarningKindShadowed
-	// WarningKindAnalysisLimitExceeded means the global tuple budget was
-	// exhausted before all shadowed-rule decisions could be completed.
+	// WarningKindAnalysisLimitExceeded means a rule's effective product
+	// exceeded the remaining global tuple budget, so its shadow status was
+	// left unchecked.
 	// Dead-rule detection still runs without this cap.
 	WarningKindAnalysisLimitExceeded
 )
@@ -39,50 +40,61 @@ type Warning struct {
 }
 
 // tupleCount computes the Cartesian product size of dimension value lists.
-// If limit > 0, multiplication stops as soon as total exceeds limit (the
-// full product is not computed). When over limit, the returned value is the
-// running product at that step (greater than limit).
+// If limit > 0, multiplication stops as soon as total exceeds limit. The
+// returned value is greater than limit in that case, or -1 if the product
+// overflows int64.
 func tupleCount(dims []Dimension, limit int64) int64 {
 	total := int64(1)
 	for _, d := range dims {
 		if len(d.values) == 0 {
 			return 0
 		}
-		total *= int64(len(d.values))
-		if limit > 0 && total > limit {
+		var exceeded bool
+		total, exceeded = multiplyCount(total, len(d.values), limit)
+		if exceeded {
 			return total
 		}
 	}
 	return total
 }
 
-// effectiveValues returns dimension values a matcher can match against dim.
-// It returns nil when the matcher can never match any declared value (empty set).
-func effectiveValues(m matcher, dim Dimension) []string {
+func multiplyCount(total int64, factor int, limit int64) (int64, bool) {
+	f := int64(factor)
+	const maxInt64 = int64(^uint64(0) >> 1)
+	if total > maxInt64/f {
+		return -1, true
+	}
+	product := total * f
+	if limit > 0 && product > limit {
+		return product, true
+	}
+	return product, false
+}
+
+func multiplyWithinBudget(total int64, factor int, remaining int64) (int64, bool) {
+	f := int64(factor)
+	if total > remaining/f {
+		return total, false
+	}
+	return total * f, true
+}
+
+// matcherHasEffectiveValue reports whether m can match a declared dim value.
+func matcherHasEffectiveValue(m matcher, dim Dimension) bool {
 	switch m.kind {
 	case mWildcard:
-		return dim.values
+		return len(dim.values) > 0
 	case mExact:
-		if dim.contains(m.vals[0]) {
-			return []string{m.vals[0]}
-		}
-		return nil
+		return len(m.vals) == 1 && dim.contains(m.vals[0])
 	case mAnyOf:
-		out := make([]string, 0, len(m.vals))
-		seen := make(map[string]struct{}, len(m.vals))
 		for _, v := range m.vals {
-			if !dim.contains(v) {
-				continue
+			if dim.contains(v) {
+				return true
 			}
-			if _, ok := seen[v]; ok {
-				continue
-			}
-			seen[v] = struct{}{}
-			out = append(out, v)
 		}
-		return out
+		return false
 	default:
-		return nil
+		return false
 	}
 }
 
@@ -100,7 +112,7 @@ func isDeadRule(r Rule, dims []Dimension) bool {
 		if len(dim.values) == 0 {
 			return true
 		}
-		if len(effectiveValues(m, dim)) == 0 {
+		if !matcherHasEffectiveValue(m, dim) {
 			return true
 		}
 	}
@@ -143,33 +155,57 @@ func shadowWarningsBudgeted(
 	rules []Rule,
 	deadMask []bool,
 	limit int,
-) ([]Warning, int) {
+) ([]Warning, []bool) {
 	wins := make([]bool, len(rules))
 	checked := make([]bool, len(rules))
+	unchecked := make([]bool, len(rules))
 	remaining := limit
+	effective := make([][]string, len(dims))
+	anyOfBuffers := make([][]string, len(dims))
+	indices := make([]int, len(dims))
+	tuple := make([]string, len(dims))
 
 	for j, r := range rules {
 		if deadMask[j] {
 			continue
 		}
-		if remaining == 0 {
-			return shadowWarningsForKnownRules(rules, deadMask, wins, checked), j
-		}
-
-		effectiveDims := make([]Dimension, len(dims))
+		product := int64(1)
+		feasible := true
 		for i, dim := range dims {
 			m := matcher{kind: mWildcard}
 			if i < len(r.m) {
 				m = r.m[i]
 			}
-			effectiveDims[i].values = effectiveValues(m, dim)
+			switch m.kind {
+			case mWildcard:
+				effective[i] = dim.values
+			case mExact:
+				effective[i] = m.vals
+			case mAnyOf:
+				values := anyOfBuffers[i][:0]
+				for _, value := range m.vals {
+					if !dim.contains(value) || containsString(values, value) {
+						continue
+					}
+					values = append(values, value)
+				}
+				anyOfBuffers[i] = values
+				effective[i] = values
+			}
+			var withinBudget bool
+			product, withinBudget = multiplyWithinBudget(product, len(effective[i]), int64(remaining))
+			if !withinBudget {
+				feasible = false
+				break
+			}
+		}
+		if !feasible {
+			unchecked[j] = true
+			continue
 		}
 
 		won := false
-		completed := walkCartesian(effectiveDims, func(tup []string) bool {
-			if remaining == 0 {
-				return false
-			}
+		completed := walkValueProduct(effective, indices, tuple, func(tup []string) bool {
 			remaining--
 			if root.search(tup, dims, 0) == j {
 				wins[j] = true
@@ -180,12 +216,19 @@ func shadowWarningsBudgeted(
 		})
 		if won || completed {
 			checked[j] = true
-			continue
 		}
-		return shadowWarningsForKnownRules(rules, deadMask, wins, checked), j
 	}
 
-	return shadowWarningsForKnownRules(rules, deadMask, wins, checked), -1
+	return shadowWarningsForKnownRules(rules, deadMask, wins, checked), unchecked
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func shadowWarningsForKnownRules(rules []Rule, deadMask, wins, checked []bool) []Warning {
@@ -245,6 +288,38 @@ func walkCartesian(dims []Dimension, fn func(tuple []string) bool) bool {
 		for i := d - 1; i >= 0 && carry; i-- {
 			indices[i]++
 			if indices[i] < len(dims[i].values) {
+				carry = false
+			} else {
+				indices[i] = 0
+			}
+		}
+		if carry {
+			return true
+		}
+	}
+}
+
+func walkValueProduct(values [][]string, indices []int, tuple []string, fn func([]string) bool) bool {
+	for _, dimValues := range values {
+		if len(dimValues) == 0 {
+			return true
+		}
+	}
+	if len(values) == 0 {
+		return fn(nil)
+	}
+	clear(indices)
+	for {
+		for i := range values {
+			tuple[i] = values[i][indices[i]]
+		}
+		if !fn(tuple) {
+			return false
+		}
+		carry := true
+		for i := len(values) - 1; i >= 0 && carry; i-- {
+			indices[i]++
+			if indices[i] < len(values[i]) {
 				carry = false
 			} else {
 				indices[i] = 0

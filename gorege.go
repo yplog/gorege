@@ -53,8 +53,9 @@ func WithTiebreak(s TiebreakStrategy) Option {
 //   - n == 0: use [DefaultAnalysisLimit].
 //   - n < 0: skip analysis entirely (no warnings).
 //   - n > 0: enumerate at most n tuples. If the full dimension product is at
-//     most n it is scanned globally. Otherwise each rule's effective product is
-//     scanned until that rule wins or the shared budget is exhausted.
+//     most n it is scanned globally. Otherwise each rule is scanned only when
+//     its effective product fits the remaining shared budget. Infeasible rules
+//     are left unchecked without consuming budget, and analysis continues.
 func WithAnalysisLimit(n int) Option {
 	return func(c *engineConfig) error {
 		c.analysisLimit = n
@@ -69,8 +70,9 @@ func WithAnalysisLimit(n int) Option {
 // rules are detected with a global tuple budget. Small products are scanned
 // directly; large products are analyzed rule by rule over only the values each
 // rule can match. Use [WithAnalysisLimit] to raise, lower, or disable (negative
-// value) analysis. If the budget is exhausted, completed shadow decisions are
-// returned along with [WarningKindAnalysisLimitExceeded].
+// value) analysis. Rules whose effective products exceed the remaining budget
+// produce [WarningKindAnalysisLimitExceeded]; later feasible rules are still
+// analyzed.
 func New(opts ...Option) (*Engine, []Warning, error) {
 	var cfg engineConfig
 	for _, o := range opts {
@@ -127,21 +129,23 @@ func buildWarnings(e *Engine, configuredLimit int) []Warning {
 	}
 
 	count := tupleCount(e.dims, int64(limit))
-	if count <= int64(limit) {
+	if count >= 0 && count <= int64(limit) {
 		out = append(out, shadowWarningsCartesian(e.trieRoot, e.dims, e.rules, deadMask)...)
 		return out
 	}
 
-	shadowed, cutoff := shadowWarningsBudgeted(e.trieRoot, e.dims, e.rules, deadMask, limit)
+	shadowed, unchecked := shadowWarningsBudgeted(e.trieRoot, e.dims, e.rules, deadMask, limit)
 	out = append(out, shadowed...)
-	if cutoff >= 0 {
-		label := ruleWarningLabel(cutoff, e.rules[cutoff])
+	for j, isUnchecked := range unchecked {
+		if !isUnchecked {
+			continue
+		}
+		label := ruleWarningLabel(j, e.rules[j])
 		out = append(out, Warning{
 			Kind: WarningKindAnalysisLimitExceeded,
 			Message: fmt.Sprintf(
-				"shadow analysis stopped at rule %s: global tuple budget (%d) exhausted; "+
-					"this rule and remaining shadow statuses are unchecked",
-				label, limit,
+				"shadow analysis skipped rule %s: its effective product exceeds the remaining tuple budget",
+				label,
 			),
 		})
 	}

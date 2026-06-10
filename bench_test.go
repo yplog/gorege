@@ -149,8 +149,9 @@ func BenchmarkNewLargeProductWildcardShadowAtBudget(b *testing.B) {
 			gorege.WithDimensions(dims...),
 			gorege.WithRules(rules...),
 		)
-		if err != nil || len(warnings) != 1 ||
-			warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded {
+		if err != nil || len(warnings) != 2 ||
+			warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded ||
+			warnings[1].Kind != gorege.WarningKindAnalysisLimitExceeded {
 			b.Fatalf("err=%v warnings=%v", err, warnings)
 		}
 	}

@@ -114,6 +114,17 @@ func TestTupleCountNoLimitFullProduct(t *testing.T) {
 	}
 }
 
+func TestTupleCountOverflow(t *testing.T) {
+	t.Parallel()
+	dims := make([]Dimension, 64)
+	for i := range dims {
+		dims[i] = DimValues("0", "1")
+	}
+	if n := tupleCount(dims, int64(^uint64(0)>>1)); n != -1 {
+		t.Fatalf("overflow sentinel = %d, want -1", n)
+	}
+}
+
 // combinationsLexOracle returns all k-combinations of {0..n-1} in ascending
 // lexicographic index order (matches former combinations(..., TiebreakLeftmostDim)).
 func combinationsLexOracle(n, k int) [][]int {

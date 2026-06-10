@@ -179,7 +179,7 @@ func TestBudgetedLargeProductMatchesLinearOracle(t *testing.T) {
 	rules := []Rule{
 		Allow("0", "0", "0", "0", "0", "0"),
 		Deny(AnyOf("1", "1", "2"), "3", "4", "5", "6", "7"),
-		Allow("9", "9", "9"),
+		Allow("9", "9", "9", "9", "9", "9"),
 	}
 	_, got, err := New(
 		WithDimensions(dims...),
