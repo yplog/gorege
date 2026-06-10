@@ -7,7 +7,7 @@ type Engine struct {
 	dims     []Dimension
 	rules    []Rule
 	tiebreak TiebreakStrategy
-	trieRoot *ruleTrieNode // nil only when dims or rules is empty
+	trieRoot *ruleTrieNode // nil only when rules is empty
 }
 
 type engineConfig struct {
@@ -47,14 +47,15 @@ func WithTiebreak(s TiebreakStrategy) Option {
 	}
 }
 
-// WithAnalysisLimit sets the upper bound on tuples scanned for shadowed-rule
-// analysis (Cartesian enumeration) in [New]. Dead-rule detection does not use
-// this cap.
+// WithAnalysisLimit sets the global number of tuples that shadowed-rule
+// analysis may enumerate in [New]. Dead-rule detection does not use this cap.
 //
 //   - n == 0: use [DefaultAnalysisLimit].
 //   - n < 0: skip analysis entirely (no warnings).
-//   - n > 0: if the dimension value product exceeds n, shadow analysis is skipped
-//     and [New] returns a [Warning] with kind [WarningKindAnalysisLimitExceeded].
+//   - n > 0: enumerate at most n tuples. If the full dimension product is at
+//     most n it is scanned globally. Otherwise each rule is scanned only when
+//     its effective product fits the remaining shared budget. Infeasible rules
+//     are left unchecked without consuming budget, and analysis continues.
 func WithAnalysisLimit(n int) Option {
 	return func(c *engineConfig) error {
 		c.analysisLimit = n
@@ -66,12 +67,12 @@ func WithAnalysisLimit(n int) Option {
 // returns warnings for dead or shadowed rules.
 //
 // Dead rules are detected without enumerating the Cartesian product. Shadowed
-// rules are detected by walking that product; for large dimension sets this
-// can be expensive. The default upper bound is [DefaultAnalysisLimit] tuples
-// for shadow analysis only. Use [WithAnalysisLimit] to raise, lower, or disable
-// (negative value) analysis. When the product exceeds the limit, a [Warning]
-// with kind [WarningKindAnalysisLimitExceeded] is returned and shadow analysis
-// is skipped; dead detection still runs.
+// rules are detected with a global tuple budget. Small products are scanned
+// directly; large products are analyzed rule by rule over only the values each
+// rule can match. Use [WithAnalysisLimit] to raise, lower, or disable (negative
+// value) analysis. Rules whose effective products exceed the remaining budget
+// produce [WarningKindAnalysisLimitExceeded]; later feasible rules are still
+// analyzed.
 func New(opts ...Option) (*Engine, []Warning, error) {
 	var cfg engineConfig
 	for _, o := range opts {
@@ -94,14 +95,14 @@ func New(opts ...Option) (*Engine, []Warning, error) {
 		rules:    cfg.rules,
 		tiebreak: tb,
 	}
-	if len(e.dims) > 0 && len(e.rules) > 0 {
+	if len(e.rules) > 0 {
 		e.trieRoot = buildTrie(e.dims, e.rules)
 	}
-	return e, buildWarnings(cfg), nil
+	return e, buildWarnings(e, cfg.analysisLimit), nil
 }
 
-func buildWarnings(cfg engineConfig) []Warning {
-	limit := cfg.analysisLimit
+func buildWarnings(e *Engine, configuredLimit int) []Warning {
+	limit := configuredLimit
 	if limit < 0 {
 		return nil
 	}
@@ -110,10 +111,10 @@ func buildWarnings(cfg engineConfig) []Warning {
 	}
 
 	var out []Warning
-	n := len(cfg.rules)
+	n := len(e.rules)
 	deadMask := make([]bool, n)
-	for j, r := range cfg.rules {
-		if isDeadRule(r, cfg.dims) {
+	for j, r := range e.rules {
+		if isDeadRule(r, e.dims) {
 			deadMask[j] = true
 			label := ruleWarningLabel(j, r)
 			out = append(out, Warning{
@@ -123,20 +124,31 @@ func buildWarnings(cfg engineConfig) []Warning {
 		}
 	}
 
-	count := tupleCount(cfg.dims, int64(limit))
-	if count > int64(limit) {
-		out = append(out, Warning{
-			Kind: WarningKindAnalysisLimitExceeded,
-			Message: fmt.Sprintf(
-				"shadow analysis skipped: dimension product (~%d tuples) exceeds limit (%d); "+
-					"use WithAnalysisLimit to raise or lower the threshold",
-				count, limit,
-			),
-		})
+	if len(e.rules) == 0 {
 		return out
 	}
 
-	out = append(out, shadowWarnings(cfg.dims, cfg.rules, deadMask)...)
+	count := tupleCount(e.dims, int64(limit))
+	if count >= 0 && count <= int64(limit) {
+		out = append(out, shadowWarningsCartesian(e.trieRoot, e.dims, e.rules, deadMask)...)
+		return out
+	}
+
+	shadowed, unchecked := shadowWarningsBudgeted(e.trieRoot, e.dims, e.rules, deadMask, limit)
+	out = append(out, shadowed...)
+	for j, isUnchecked := range unchecked {
+		if !isUnchecked {
+			continue
+		}
+		label := ruleWarningLabel(j, e.rules[j])
+		out = append(out, Warning{
+			Kind: WarningKindAnalysisLimitExceeded,
+			Message: fmt.Sprintf(
+				"shadow analysis skipped rule %s: its effective product exceeds the remaining tuple budget",
+				label,
+			),
+		})
+	}
 	return out
 }
 

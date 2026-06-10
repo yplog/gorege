@@ -169,7 +169,7 @@ func splitDiffArgs(args []string) (flagArgs, positional []string, err error) {
 func runDiff(args []string) int {
 	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	limit := fs.Int("limit", gorege.DefaultAnalysisLimit, "Cartesian product cap")
+	limit := fs.Int("limit", gorege.DefaultAnalysisLimit, "global shadow-analysis tuple budget")
 	format := fs.String("format", "text", "output format: text|json")
 	includeUnchanged := fs.Bool("include-unchanged", false, "include unchanged tuples in JSON output")
 

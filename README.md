@@ -153,9 +153,9 @@ changes on `main`. The `$schema` field is ignored by the loader
 (`gorege` uses `encoding/json` decoding into a struct without a `$schema`
 field, so unknown keys are silently dropped).
 
-On `New`, `Load`, `LoadWithOptions`, or `LoadFileWithOptions`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Dead detection does not enumerate the product; shadow detection does, subject to a tuple cap. Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
+On `New`, `Load`, `LoadWithOptions`, or `LoadFileWithOptions`, the engine reports **warnings** for rules that never match any tuple in the Cartesian product (“dead”) or never win first-match (“shadowed”), unless analysis is skipped (see below). Dead detection does not enumerate the product. Shadow detection uses a global enumerated-tuple budget. Each `Warning` includes `Kind` (`WarningKindDead`, `WarningKindShadowed`, or `WarningKindAnalysisLimitExceeded`) so callers need not parse `Message`.
 
-> **Performance note:** Shadowed-rule analysis walks the Cartesian product of declared dimension values. With large dimension sets (e.g. 6 dimensions × 20 values = 64 000 000 tuples) this can be slow. The default cap is 100 000 tuples for that pass; use `WithAnalysisLimit(n)` with `New` or `LoadWithOptions` / `LoadFileWithOptions` to adjust, or pass a negative value to skip analysis entirely. When the cap is exceeded, dead rules are still reported.
+> **Performance note:** When the declared Cartesian product is within the budget, shadow analysis walks it once and uses the engine trie to identify each first-match winner. For a larger product, analysis instead considers each live rule's effective product: exact matchers contribute one value, `AnyOf` contributes its deduplicated declared values, and wildcard or omitted trailing matchers contribute all declared values. A rule is enumerated only when its whole effective product fits the remaining shared budget, and enumeration stops as soon as it wins. An infeasible rule produces its own `WarningKindAnalysisLimitExceeded` warning without consuming budget; analysis then continues with later rules. Dead warnings are returned first, followed by known shadowed warnings and unchecked-rule warnings in rule order. The default shared budget is 100 000 tuples; use `WithAnalysisLimit(n)` to adjust it, or pass a negative value to skip all warning analysis.
 
 ## Bring Your Own Parser
 
@@ -178,7 +178,7 @@ e, warnings, err := gorege.NewFromConfig(cfg,
 
 | Area | Functions |
 |------|-----------|
-| Build | `New`, `NewFromConfig`, `WithDimensions`, `WithRules`, `WithTiebreak`, `WithAnalysisLimit` (shadow analysis tuple cap, default 100 000) |
+| Build | `New`, `NewFromConfig`, `WithDimensions`, `WithRules`, `WithTiebreak`, `WithAnalysisLimit` (global shadow-analysis tuple budget, default 100 000) |
 | Inspect | `Dimensions`, `Rules` (defensive copies) |
 | Evaluate | `Check`, `PartialCheck`, `Explain` |
 | Nearest allow | `Closest` — BFS by Hamming distance from the input; **any** dimensions may change until an allowed tuple is found. `ClosestIn` — **only** the selected dimension changes (others fixed); `dim` is an index or dimension name. Tiebreak (`WithTiebreak`): leftmost / rightmost / declaration order affects `Closest` search and reporting. |
