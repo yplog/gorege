@@ -231,7 +231,8 @@ func TestLoadWithOptionsAnalysisLimitExceeded(t *testing.T) {
     {"values": ["x", "y", "z", "w", "v"]}
   ],
   "rules": [
-    {"action": "ALLOW", "conditions": ["*", "*", "*"]}
+    {"action": "ALLOW", "conditions": ["*", "*", "*"]},
+    {"action": "DENY", "conditions": ["*", "*", "*"]}
   ]
 }`
 	_, warnings, err := gorege.LoadWithOptions(
@@ -244,7 +245,7 @@ func TestLoadWithOptionsAnalysisLimitExceeded(t *testing.T) {
 	if len(warnings) != 1 || warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded {
 		t.Fatalf("got %v", warnings)
 	}
-	if want := "~125 tuples"; !strings.Contains(warnings[0].Message, want) {
+	if want := "rule 1"; !strings.Contains(warnings[0].Message, want) {
 		t.Fatalf("message %q should contain %q", warnings[0].Message, want)
 	}
 }

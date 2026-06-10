@@ -12,9 +12,9 @@ const (
 	// WarningKindShadowed means the rule matches some tuple but never wins
 	// first-match against earlier rules.
 	WarningKindShadowed
-	// WarningKindAnalysisLimitExceeded means shadowed-rule analysis (Cartesian
-	// enumeration) was skipped because the dimension value product exceeded the
-	// configured limit. Dead-rule detection still runs without this cap.
+	// WarningKindAnalysisLimitExceeded means the global tuple budget was
+	// exhausted before all shadowed-rule decisions could be completed.
+	// Dead-rule detection still runs without this cap.
 	WarningKindAnalysisLimitExceeded
 )
 
@@ -69,10 +69,16 @@ func effectiveValues(m matcher, dim Dimension) []string {
 		return nil
 	case mAnyOf:
 		out := make([]string, 0, len(m.vals))
+		seen := make(map[string]struct{}, len(m.vals))
 		for _, v := range m.vals {
-			if dim.contains(v) {
-				out = append(out, v)
+			if !dim.contains(v) {
+				continue
 			}
+			if _, ok := seen[v]; ok {
+				continue
+			}
+			seen[v] = struct{}{}
+			out = append(out, v)
 		}
 		return out
 	default:
@@ -101,32 +107,94 @@ func isDeadRule(r Rule, dims []Dimension) bool {
 	return false
 }
 
-func shadowWarnings(dims []Dimension, rules []Rule, deadMask []bool) []Warning {
+func shadowWarningsCartesian(root *ruleTrieNode, dims []Dimension, rules []Rule, deadMask []bool) []Warning {
 	n := len(rules)
 	if n == 0 {
 		return nil
 	}
 	wins := make([]bool, n)
-	d := len(dims)
-	walkCartesian(dims, func(tup []string) {
-		fm := -1
-		for j, r := range rules {
-			if deadMask[j] {
-				continue
-			}
-			if ruleMatches(r, dims, d, tup, false) {
-				if fm < 0 {
-					fm = j
-				}
-			}
+	liveRemaining := 0
+	for j := range rules {
+		if !deadMask[j] {
+			liveRemaining++
 		}
+	}
+	if liveRemaining == 0 {
+		return nil
+	}
+
+	walkCartesian(dims, func(tup []string) bool {
+		fm := root.search(tup, dims, 0)
 		if fm >= 0 {
-			wins[fm] = true
+			if !wins[fm] {
+				wins[fm] = true
+				liveRemaining--
+			}
 		}
+		return liveRemaining > 0
 	})
+
+	return shadowWarningsForKnownRules(rules, deadMask, wins, nil)
+}
+
+func shadowWarningsBudgeted(
+	root *ruleTrieNode,
+	dims []Dimension,
+	rules []Rule,
+	deadMask []bool,
+	limit int,
+) ([]Warning, int) {
+	wins := make([]bool, len(rules))
+	checked := make([]bool, len(rules))
+	remaining := limit
+
+	for j, r := range rules {
+		if deadMask[j] {
+			continue
+		}
+		if remaining == 0 {
+			return shadowWarningsForKnownRules(rules, deadMask, wins, checked), j
+		}
+
+		effectiveDims := make([]Dimension, len(dims))
+		for i, dim := range dims {
+			m := matcher{kind: mWildcard}
+			if i < len(r.m) {
+				m = r.m[i]
+			}
+			effectiveDims[i].values = effectiveValues(m, dim)
+		}
+
+		won := false
+		completed := walkCartesian(effectiveDims, func(tup []string) bool {
+			if remaining == 0 {
+				return false
+			}
+			remaining--
+			if root.search(tup, dims, 0) == j {
+				wins[j] = true
+				won = true
+				return false
+			}
+			return true
+		})
+		if won || completed {
+			checked[j] = true
+			continue
+		}
+		return shadowWarningsForKnownRules(rules, deadMask, wins, checked), j
+	}
+
+	return shadowWarningsForKnownRules(rules, deadMask, wins, checked), -1
+}
+
+func shadowWarningsForKnownRules(rules []Rule, deadMask, wins, checked []bool) []Warning {
 	var out []Warning
 	for j := range rules {
 		if deadMask[j] {
+			continue
+		}
+		if checked != nil && !checked[j] {
 			continue
 		}
 		r := rules[j]
@@ -149,18 +217,19 @@ func ruleWarningLabel(j int, r Rule) string {
 }
 
 // walkCartesian calls fn for each tuple in the Cartesian product of dims' value
-// lists. fn receives a reused buffer; callers must copy if they retain it.
+// lists until the product is exhausted or fn returns false. fn receives a
+// reused buffer; callers must copy if they retain it. The return value reports
+// whether the full product was exhausted.
 // Empty value lists yield no calls (same as skipping shadow tuples). len(dims)==0
 // invokes fn(nil) once.
-func walkCartesian(dims []Dimension, fn func(tuple []string)) {
+func walkCartesian(dims []Dimension, fn func(tuple []string) bool) bool {
 	for _, dim := range dims {
 		if len(dim.values) == 0 {
-			return
+			return true
 		}
 	}
 	if len(dims) == 0 {
-		fn(nil)
-		return
+		return fn(nil)
 	}
 	d := len(dims)
 	indices := make([]int, d)
@@ -169,7 +238,9 @@ func walkCartesian(dims []Dimension, fn func(tuple []string)) {
 		for i, dim := range dims {
 			buf[i] = dim.values[indices[i]]
 		}
-		fn(buf)
+		if !fn(buf) {
+			return false
+		}
 		carry := true
 		for i := d - 1; i >= 0 && carry; i-- {
 			indices[i]++
@@ -180,7 +251,7 @@ func walkCartesian(dims []Dimension, fn func(tuple []string)) {
 			}
 		}
 		if carry {
-			return
+			return true
 		}
 	}
 }

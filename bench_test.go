@@ -98,3 +98,60 @@ func BenchmarkNewFromConfigSkipAnalysis(b *testing.B) {
 		_, _, _ = gorege.NewFromConfig(cfg, gorege.WithAnalysisLimit(-1))
 	}
 }
+
+func BenchmarkNewLargeProductExactRules(b *testing.B) {
+	axis := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+	dims := []gorege.Dimension{
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+	}
+	rules := []gorege.Rule{
+		gorege.Allow("0", "0", "0", "0", "0", "0"),
+		gorege.Deny("9", "9", "9", "9", "9", "9"),
+	}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, warnings, err := gorege.New(
+			gorege.WithAnalysisLimit(2),
+			gorege.WithDimensions(dims...),
+			gorege.WithRules(rules...),
+		)
+		if err != nil || len(warnings) != 0 {
+			b.Fatalf("err=%v warnings=%v", err, warnings)
+		}
+	}
+}
+
+func BenchmarkNewLargeProductWildcardShadowAtBudget(b *testing.B) {
+	axis := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+	dims := []gorege.Dimension{
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+		gorege.DimValues(axis...),
+	}
+	rules := []gorege.Rule{
+		gorege.Allow(gorege.Wildcard, gorege.Wildcard, gorege.Wildcard, gorege.Wildcard, gorege.Wildcard, gorege.Wildcard),
+		gorege.Deny(gorege.Wildcard, gorege.Wildcard, gorege.Wildcard, gorege.Wildcard, gorege.Wildcard, gorege.Wildcard),
+	}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, warnings, err := gorege.New(
+			gorege.WithAnalysisLimit(1_000),
+			gorege.WithDimensions(dims...),
+			gorege.WithRules(rules...),
+		)
+		if err != nil || len(warnings) != 1 ||
+			warnings[0].Kind != gorege.WarningKindAnalysisLimitExceeded {
+			b.Fatalf("err=%v warnings=%v", err, warnings)
+		}
+	}
+}
