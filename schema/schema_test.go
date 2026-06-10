@@ -35,7 +35,6 @@ func TestTestdataFixturesAreValidJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range matches {
-		p := p
 		t.Run(filepath.Base(p), func(t *testing.T) {
 			t.Parallel()
 			b, err := os.ReadFile(p)

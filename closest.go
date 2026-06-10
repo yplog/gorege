@@ -312,19 +312,6 @@ func buildClosestResultDynamic(e *Engine, input, candidate []string, subset []in
 	}
 }
 
-func hammingDistance(a, b []string) int {
-	if len(a) != len(b) {
-		panic("gorege: hammingDistance: length mismatch")
-	}
-	n := 0
-	for i := range a {
-		if a[i] != b[i] {
-			n++
-		}
-	}
-	return n
-}
-
 func pickPrimaryDim(diffs []int, tb TiebreakStrategy) int {
 	switch tb {
 	case TiebreakRightmostDim:

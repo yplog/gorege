@@ -20,6 +20,14 @@ tasks:
     cmds:
       - go fmt ./...
 
+  fix:
+    desc: Apply Go source updates to the main module and examples
+    cmds:
+      - go fix ./...
+      - cd examples/feature_flags && go fix ./...
+      - cd examples/ecommerce_availability && go fix ./...
+      - cd examples/http_authz && go fix ./...
+
   vet:
     desc: Run go vet
     cmds:
@@ -89,9 +97,9 @@ tasks:
   examples-build:
     desc: Build all examples (compilation check)
     cmds:
-      - cd examples/feature_flags && go build ./...
-      - cd examples/ecommerce_availability && go build ./...
-      - cd examples/http_authz && go build ./...
+      - cd examples/feature_flags && go build -o /tmp/gorege-feature-flags .
+      - cd examples/ecommerce_availability && go build -o /tmp/gorege-ecommerce-availability .
+      - cd examples/http_authz && go build -o /tmp/gorege-http-authz .
 
   examples-run:
     desc: Run non-server examples (smoke test)

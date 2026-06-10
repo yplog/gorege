@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,6 +12,14 @@ import (
 
 	"github.com/yplog/gorege"
 )
+
+type failingWriter struct {
+	err error
+}
+
+func (w failingWriter) Write([]byte) (int, error) {
+	return 0, w.err
+}
 
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
@@ -128,6 +137,14 @@ func TestRunDiffUnknownFormat(t *testing.T) {
 	}
 }
 
+func TestPrintSummaryTextReturnsWriteError(t *testing.T) {
+	want := errors.New("write failed")
+	err := printSummaryText(failingWriter{err: want}, diffSummary{})
+	if !errors.Is(err, want) {
+		t.Fatalf("got error %v, want %v", err, want)
+	}
+}
+
 func TestClassifyTransition(t *testing.T) {
 	cases := []struct {
 		name string
@@ -153,7 +170,6 @@ func TestClassifyTransition(t *testing.T) {
 			transRuleChanged},
 	}
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if got := classifyTransition(c.ox, c.nx); got != c.want {
