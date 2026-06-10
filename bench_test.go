@@ -61,3 +61,40 @@ func BenchmarkClosest(b *testing.B) {
 		_, _ = e.Closest("u", "0")
 	}
 }
+
+func BenchmarkNewSkipAnalysis(b *testing.B) {
+	for b.Loop() {
+		_, _, _ = gorege.New(
+			gorege.WithAnalysisLimit(-1),
+			gorege.WithDimensions(
+				gorege.Dim("membership", "Gold member", "Regular member", "Guest"),
+				gorege.Dim("day", "Mon", "Tue", "Wed", "Thu", "Fri"),
+				gorege.Dim("facility", "Swimming pool", "Gym", "Sauna"),
+			),
+			gorege.WithRules(
+				gorege.Allow("Gold member", gorege.Wildcard, gorege.Wildcard),
+				gorege.Deny("Guest", gorege.AnyOf("Mon", "Tue"), "Sauna"),
+				gorege.Allow(gorege.AnyOf("Guest", "Regular member"), gorege.Wildcard, gorege.Wildcard),
+			),
+		)
+	}
+}
+
+func BenchmarkNewFromConfigSkipAnalysis(b *testing.B) {
+	cfg := gorege.Config{
+		Dimensions: []gorege.DimensionConfig{
+			{Name: "membership", Values: []string{"Gold member", "Regular member", "Guest"}},
+			{Name: "day", Values: []string{"Mon", "Tue", "Wed", "Thu", "Fri"}},
+			{Name: "facility", Values: []string{"Swimming pool", "Gym", "Sauna"}},
+		},
+		Rules: []gorege.RuleConfig{
+			{Action: "ALLOW", Conditions: []any{"Gold member", "*", "*"}},
+			{Action: "DENY", Conditions: []any{"Guest", []string{"Mon", "Tue"}, "Sauna"}},
+			{Action: "ALLOW", Conditions: []any{[]string{"Guest", "Regular member"}, "*", "*"}},
+		},
+	}
+	b.ResetTimer()
+	for b.Loop() {
+		_, _, _ = gorege.NewFromConfig(cfg, gorege.WithAnalysisLimit(-1))
+	}
+}

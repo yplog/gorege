@@ -90,8 +90,8 @@ func New(opts ...Option) (*Engine, []Warning, error) {
 		tb = cfg.tb
 	}
 	e := &Engine{
-		dims:     cloneDimensions(cfg.dims),
-		rules:    cloneRules(cfg.rules),
+		dims:     cfg.dims,
+		rules:    cfg.rules,
 		tiebreak: tb,
 	}
 	if len(e.dims) > 0 && len(e.rules) > 0 {

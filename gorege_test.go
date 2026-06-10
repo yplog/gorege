@@ -89,6 +89,31 @@ func TestEngineDimensionsCopy(t *testing.T) {
 	}
 }
 
+func TestNewCopiesOptionInputs(t *testing.T) {
+	t.Parallel()
+	dims := []gorege.Dimension{gorege.DimValues("a", "b")}
+	rules := []gorege.Rule{gorege.Allow("a")}
+	e, _, err := gorege.New(
+		gorege.WithDimensions(dims...),
+		gorege.WithRules(rules...),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dims[0] = gorege.DimValues("x")
+	rules[0] = gorege.Deny("a")
+
+	ok, err := e.Check("a")
+	if err != nil || !ok {
+		t.Fatalf("caller mutation affected engine: ok=%v err=%v", ok, err)
+	}
+	got := e.Dimensions()
+	if values := got[0].Values(); len(values) != 2 || values[0] != "a" || values[1] != "b" {
+		t.Fatalf("caller mutation affected dimensions: %v", values)
+	}
+}
+
 func TestAnalysisLimitExceeded(t *testing.T) {
 	t.Parallel()
 	_, warnings, err := gorege.New(
