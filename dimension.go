@@ -48,13 +48,14 @@ func (d Dimension) contains(value string) bool {
 	return ok
 }
 
+// cloneDimensions copies slice storage; idx maps are immutable and shared.
 func cloneDimensions(dims []Dimension) []Dimension {
 	out := make([]Dimension, len(dims))
 	for i := range dims {
 		out[i] = Dimension{
 			name:   dims[i].name,
 			values: append([]string(nil), dims[i].values...),
-			idx:    indexValues(dims[i].values),
+			idx:    dims[i].idx,
 		}
 	}
 	return out
