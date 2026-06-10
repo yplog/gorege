@@ -273,7 +273,10 @@ func runDiff(args []string) int {
 			return 1
 		}
 	case "text":
-		printSummaryText(os.Stdout, summary)
+		if err := printSummaryText(os.Stdout, summary); err != nil {
+			fmt.Fprintln(os.Stderr, "gorege diff:", err)
+			return 1
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "gorege diff: unknown format %q\n", *format)
 		return 2
@@ -308,36 +311,50 @@ func sortTransitions(ts []transition) {
 	})
 }
 
-func printSummaryText(w io.Writer, s diffSummary) {
-	fmt.Fprintf(w, "tuples examined: %d (product=%d, limit=%d)\n", s.Total, s.DimensionProduct, s.Limit)
-	fmt.Fprintf(w, "  ALLOW→DENY:   %d\n", s.AllowToDeny)
-	fmt.Fprintf(w, "  DENY→ALLOW:   %d\n", s.DenyToAllow)
-	fmt.Fprintf(w, "  rule changed: %d\n", s.RuleChanged)
-	fmt.Fprintf(w, "  unchanged:    %d\n", s.Unchanged)
+func printSummaryText(w io.Writer, s diffSummary) error {
+	if _, err := fmt.Fprintf(w, "tuples examined: %d (product=%d, limit=%d)\n", s.Total, s.DimensionProduct, s.Limit); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "  ALLOW→DENY:   %d\n", s.AllowToDeny); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "  DENY→ALLOW:   %d\n", s.DenyToAllow); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "  rule changed: %d\n", s.RuleChanged); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "  unchanged:    %d\n", s.Unchanged); err != nil {
+		return err
+	}
 
 	decisionChanges := s.AllowToDeny + s.DenyToAllow
 	if decisionChanges == 0 {
-		fmt.Fprintln(w, "\nno decision changes")
-		return
+		_, err := fmt.Fprintln(w, "\nno decision changes")
+		return err
 	}
 
-	fmt.Fprintln(w, "\nfirst 50 changes:")
-	n := 50
-	if len(s.Transitions) < n {
-		n = len(s.Transitions)
+	if _, err := fmt.Fprintln(w, "\nfirst 50 changes:"); err != nil {
+		return err
 	}
+	n := min(len(s.Transitions), 50)
 	printed := 0
 	for _, t := range s.Transitions {
 		if t.Kind == "UNCHANGED" {
 			continue
 		}
-		fmt.Fprintf(w, "  %-12s %v  old=%q (idx=%d)  new=%q (idx=%d)\n", t.Kind, t.Tuple, t.OldRule, t.OldIndex, t.NewRule, t.NewIndex)
+		if _, err := fmt.Fprintf(w, "  %-12s %v  old=%q (idx=%d)  new=%q (idx=%d)\n", t.Kind, t.Tuple, t.OldRule, t.OldIndex, t.NewRule, t.NewIndex); err != nil {
+			return err
+		}
 		printed++
 		if printed >= n {
 			break
 		}
 	}
 	if len(s.Transitions) > n {
-		fmt.Fprintf(w, "  ... and %d more (use --format json for full list)\n", len(s.Transitions)-n)
+		if _, err := fmt.Fprintf(w, "  ... and %d more (use --format json for full list)\n", len(s.Transitions)-n); err != nil {
+			return err
+		}
 	}
+	return nil
 }
