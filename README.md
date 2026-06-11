@@ -201,11 +201,20 @@ gorege closest-in path/to/rules.json 2 Guest Wed Sauna   # same, varying only di
 gorege closest-in path/to/rules.json facility Guest Wed Sauna # or dimension name
 gorege lint path/to/rules.json                    # dead/shadow warnings (or "ok"); exit 1 if any warnings
 gorege diff old.json new.json                     # decision diff over Cartesian product; exit 1 on allow/deny change
-gorege diff old.json new.json --limit 250000      # raise the tuple cap
+gorege diff old.json new.json --limit 250000      # raise the Cartesian diff enumeration limit
 gorege diff old.json new.json --format json       # full transition list as JSON (pipeable to jq)
 ```
 
-**Where loader warnings go:** For `check`, `explain`, `partial-check`, `closest`, `closest-in`, and `diff`, the main result is on **stdout** (for example `true`/`false` or `explain` fields), so engine load warnings (dead rules, shadowed rules, analysis limit, ...) are printed to **stderr** as secondary output. **`lint`** is the opposite: those warnings *are* the intended output, so each message is printed to **stdout** (or `ok` when there are none), which keeps `lint` easy to pipe or scrape; load errors still go to **stderr**.
+**Where loader warnings go:** For `check`, `explain`, `partial-check`,
+`closest`, and `closest-in`, the main result is on **stdout** (for example
+`true`/`false` or `explain` fields), so engine load warnings (dead rules,
+shadowed rules, analysis limit, ...) are printed to **stderr** as secondary
+output. **`lint`** is the opposite: those warnings *are* the intended output,
+so each message is printed to **stdout** (or `ok` when there are none), which
+keeps `lint` easy to pipe or scrape; load errors still go to **stderr**.
+**`diff` disables loader warning analysis** for both inputs because it performs
+its own Cartesian decision enumeration; `diff --limit` bounds that enumeration
+and is independent of `WithAnalysisLimit`.
 
 `explain` prints `matched`, `allowed`, `rule_index`, `rule_name`, and `action` (or a line for implicit deny when no rule matches). Exit code stays `0` when the explanation was computed successfully.
 
@@ -246,7 +255,7 @@ Fuzz targets live in `fuzz_test.go`. Normal `go test` runs each fuzz function on
 
 ```
 gorege.go    Engine, New, options
-trie.go      Priority Multi-path Trie (always active when dims and rules are present)
+trie.go      Priority Multi-path Trie (active whenever rules are present)
 rule.go      Rules, matchers, Allow/Deny
 dimension.go Dimensions
 check.go     Check, PartialCheck, Explain

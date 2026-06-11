@@ -86,12 +86,7 @@ func oracleMatcherMatches(m matcher, value string) bool {
 	case mExact:
 		return len(m.vals) == 1 && m.vals[0] == value
 	case mAnyOf:
-		for _, candidate := range m.vals {
-			if candidate == value {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(m.vals, value)
 	case mWildcard:
 		return true
 	default:
@@ -146,7 +141,6 @@ func TestShadowWarningsCartesianMatchLinearOracle(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			_, got, err := New(

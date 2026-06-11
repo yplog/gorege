@@ -7,6 +7,62 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.2.0] - 2026-06-11
+
+### Changed
+
+- **Budgeted shadow analysis** — `WithAnalysisLimit` now defines a shared global
+  tuple budget instead of an all-or-nothing Cartesian product cap. When the
+  complete declared product fits, it is still scanned once. For larger
+  products, each live rule is analyzed over only its effective product:
+  `Exact` contributes one value, `AnyOf` contributes its deduplicated declared
+  values, and `Wildcard` or omitted trailing matchers contribute all declared
+  values.
+
+- Rules whose effective products exceed the remaining budget now produce
+  individual `WarningKindAnalysisLimitExceeded` warnings without consuming
+  budget. Analysis continues with later feasible rules instead of skipping the
+  entire shadow pass.
+
+- Warning output is deterministic: dead warnings are returned first, followed
+  by known shadowed warnings and unchecked-rule warnings in rule order.
+  `WarningKindAnalysisLimitExceeded` remains the public warning kind, but its
+  human-readable message now identifies the affected rule.
+
+- Public documentation now describes `WithAnalysisLimit` as a global
+  shadow-analysis tuple budget and distinguishes it from the independent
+  Cartesian enumeration limit used by `gorege diff --limit`. No exported
+  identifiers or command flags were added or removed.
+
+### Performance
+
+- **Trie-backed shadow analysis** — full-product and budgeted analysis use the
+  engine's Priority Multi-path Trie to find first-match winners instead of
+  scanning every rule for every tuple. Enumeration stops as soon as a rule is
+  known to win, and infeasible effective products are rejected without walking
+  tuples.
+
+- **Engine construction allocation reduction** — `WithDimensions` and
+  `WithRules` continue to make defensive copies, while `New` now reuses those
+  frozen copies instead of cloning them a second time. Dimension lookup maps
+  are immutable and shared by defensive copies.
+
+  Measured on Apple M2 Pro, darwin/arm64, Go 1.26.4, `count=6` with
+  `benchstat`, compared against v1.0.2:
+
+  | Benchmark | v1.0.2 | v1.2.0 | Δ |
+  |-----------|--------|--------|---|
+  | `New` — with analysis | 7.198 µs | 3.540 µs | −50.82% |
+  | `New` — skip analysis | 3.171 µs | 2.079 µs | −34.44% |
+  | `New` — at analysis limit | 64.639 µs | 1.417 µs | −97.81% |
+  | Analysis rule scale — N=1000 | 7.967 ms | 253.3 µs | −96.82% |
+  | Large-product wildcard — limit 1000 | 5.098 µs | 1.671 µs | −67.22% |
+
+  Construction memory also drops substantially: `New` with analysis uses 42%
+  fewer bytes and 34% fewer allocations; the N=1000 analysis benchmark uses
+  41% fewer bytes and 44% fewer allocations; the large-product wildcard case
+  uses 71% fewer bytes and 63% fewer allocations.
+
 ## [1.0.0] - 2026-04-25
 
 ### Stability commitment
@@ -285,6 +341,7 @@ The linear scaling characteristic is preserved; only the per-rule constant impro
 
 Initial public release.
 
+[1.2.0]: https://github.com/yplog/gorege/compare/v1.0.2...v1.2.0
 [1.0.0]: https://github.com/yplog/gorege/compare/v0.5.0...v1.0.0
 [0.5.0]: https://github.com/yplog/gorege/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/yplog/gorege/compare/v0.3.0...v0.4.0

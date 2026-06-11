@@ -1,5 +1,7 @@
 package gorege
 
+import "slices"
+
 import "strconv"
 
 // WarningKind classifies a [Warning] from rule analysis.
@@ -87,12 +89,7 @@ func matcherHasEffectiveValue(m matcher, dim Dimension) bool {
 	case mExact:
 		return len(m.vals) == 1 && dim.contains(m.vals[0])
 	case mAnyOf:
-		for _, v := range m.vals {
-			if dim.contains(v) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(m.vals, dim.contains)
 	default:
 		return false
 	}
@@ -223,12 +220,7 @@ func shadowWarningsBudgeted(
 }
 
 func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }
 
 func shadowWarningsForKnownRules(rules []Rule, deadMask, wins, checked []bool) []Warning {
