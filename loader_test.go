@@ -395,3 +395,36 @@ func TestNewFromConfigDimensionNoValues(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+// TestLoadDimensionWhitespaceOnlyName verifies that a dimension whose JSON
+// "name" field contains only whitespace is trimmed to an empty string and
+// treated as an anonymous dimension (DimValues semantics).
+func TestLoadDimensionWhitespaceOnlyName(t *testing.T) {
+	t.Parallel()
+	doc := `{"dimensions":[{"name":"  ","values":["a","b"]}],"rules":[{"action":"ALLOW","conditions":["*"]}]}`
+	e, _, err := gorege.Load(strings.NewReader(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dims := e.Dimensions()
+	if len(dims) != 1 {
+		t.Fatalf("expected 1 dimension, got %d", len(dims))
+	}
+	if dims[0].Name() != "" {
+		t.Fatalf("expected anonymous dim (name=%q), got name=%q", "", dims[0].Name())
+	}
+}
+
+// TestLoadActionCaseInsensitive verifies that parseAction normalises the action
+// string via strings.ToUpper and strings.TrimSpace, so lowercase and padded
+// variants of "allow" and "deny" are accepted.
+func TestLoadActionCaseInsensitive(t *testing.T) {
+	t.Parallel()
+	for _, act := range []string{"allow", "Allow", " ALLOW ", "deny", "Deny", " DENY "} {
+		doc := `{"dimensions":[{"name":"x","values":["a"]}],"rules":[{"action":"` + act + `","conditions":["a"]}]}`
+		_, _, err := gorege.Load(strings.NewReader(doc))
+		if err != nil {
+			t.Errorf("action %q: unexpected error %v", act, err)
+		}
+	}
+}

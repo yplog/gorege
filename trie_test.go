@@ -138,3 +138,61 @@ func TestTrieAnyOfFanOut(t *testing.T) {
 		}
 	}
 }
+
+// TestTrieMapModeUpgrade verifies that inserting more than trieChildThreshold (16)
+// distinct exact keys at one node promotes the children slice to a map, and that
+// all three map-path branches of getOrCreateChild are covered:
+//
+//  1. The slice-to-map upgrade (17th distinct key triggers it).
+//  2. A new key inserted while already in map mode (18th distinct key).
+//  3. An existing key looked up in map mode (duplicate key after map exists).
+func TestTrieMapModeUpgrade(t *testing.T) {
+	t.Parallel()
+	// 18 distinct values: upgrade fires at the 17th, and the 18th exercises the
+	// "insert new child into an already-map-mode node" path.
+	vals := []string{
+		"e01", "e02", "e03", "e04", "e05", "e06", "e07", "e08",
+		"e09", "e10", "e11", "e12", "e13", "e14", "e15", "e16", "e17", "e18",
+	}
+	dims := []Dimension{DimValues(vals...)}
+	rules := make([]Rule, len(vals))
+	for i, v := range vals {
+		rules[i] = Allow(v)
+	}
+	root := buildTrie(dims, rules)
+
+	if root.childrenMap == nil {
+		t.Fatal("expected map-mode trie after inserting >trieChildThreshold children")
+	}
+	if root.children != nil {
+		t.Fatal("slice children should be nil after map promotion")
+	}
+
+	// Map-mode search must agree with the linear oracle for every known value.
+	for i, v := range vals {
+		want := firstMatchLinear(dims, rules, []string{v})
+		got := root.search([]string{v}, dims, 0)
+		if got != want {
+			t.Errorf("v=%q: trie=%d linear=%d (expected rule %d)", v, got, want, i)
+		}
+	}
+
+	// A value absent from the map should return noMatch.
+	if got := root.search([]string{"missing"}, dims, 0); got != noMatch {
+		t.Errorf("missing key: expected noMatch(-1), got %d", got)
+	}
+
+	// Add an extra rule that reuses an already-mapped key ("e01") to exercise
+	// the getOrCreateChild "map returns existing child" (ok == true) branch.
+	rulesWithDup := append(append([]Rule{}, rules...), Allow("e01"))
+	root2 := buildTrie(dims, rulesWithDup)
+	if root2.childrenMap == nil {
+		t.Fatal("root2: expected map-mode trie")
+	}
+	// The original Allow("e01") at index 0 wins under first-match.
+	want0 := firstMatchLinear(dims, rulesWithDup, []string{"e01"})
+	got0 := root2.search([]string{"e01"}, dims, 0)
+	if got0 != want0 {
+		t.Errorf("dup e01: trie=%d linear=%d", got0, want0)
+	}
+}

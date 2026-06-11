@@ -20,6 +20,30 @@ func TestNewPropagatesOptionError(t *testing.T) {
 	}
 }
 
+// TestValidateMatcherDimNotKnown exercises the !dimKnown branches inside
+// validateMatcher, which are defensive guards that cannot be reached through
+// validateEngine (which rejects rules wider than the dimension count first).
+// Calling validateMatcher directly is the only way to cover these lines.
+func TestValidateMatcherDimNotKnown(t *testing.T) {
+	t.Parallel()
+	// mWildcard with dimKnown=false → nil (no error)
+	if err := validateMatcher(matcher{kind: mWildcard}, Dimension{}, false, 0, 0); err != nil {
+		t.Fatalf("mWildcard !dimKnown: expected nil, got %v", err)
+	}
+	// mExact with a value and dimKnown=false → ErrUnknownDimensionValue
+	if err := validateMatcher(matcher{kind: mExact, vals: []string{"x"}}, Dimension{}, false, 0, 0); !errors.Is(err, ErrUnknownDimensionValue) {
+		t.Fatalf("mExact !dimKnown: expected ErrUnknownDimensionValue, got %v", err)
+	}
+	// mExact with empty vals and dimKnown=false → ErrUnknownDimensionValue (v="" path)
+	if err := validateMatcher(matcher{kind: mExact, vals: nil}, Dimension{}, false, 0, 0); !errors.Is(err, ErrUnknownDimensionValue) {
+		t.Fatalf("mExact empty vals !dimKnown: expected ErrUnknownDimensionValue, got %v", err)
+	}
+	// mAnyOf with dimKnown=false → ErrUnknownDimensionValue
+	if err := validateMatcher(matcher{kind: mAnyOf, vals: []string{"a", "b"}}, Dimension{}, false, 0, 0); !errors.Is(err, ErrUnknownDimensionValue) {
+		t.Fatalf("mAnyOf !dimKnown: expected ErrUnknownDimensionValue, got %v", err)
+	}
+}
+
 func TestMatcherFromSlotStringSlice(t *testing.T) {
 	t.Parallel()
 	m, err := matcherFromSlot([]string{"a", "b"})

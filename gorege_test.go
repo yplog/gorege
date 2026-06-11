@@ -539,6 +539,51 @@ func TestGlobalProductWithinLimitUsesCartesianAnalysis(t *testing.T) {
 	}
 }
 
+// TestExactMatcherOnEmptyValuesDimension exercises the validateMatcher branch
+// where dimKnown=true but len(dim.values)==0, which allows any exact matcher
+// value without returning ErrUnknownDimensionValue.
+func TestExactMatcherOnEmptyValuesDimension(t *testing.T) {
+	t.Parallel()
+	// DimValues() creates a dimension with an empty value list. validateMatcher
+	// returns nil for any non-wildcard matcher in this case.
+	e, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues()),
+		gorege.WithRules(gorege.Allow("targetval")),
+	)
+	if err != nil {
+		t.Fatalf("expected no validation error with exact matcher on empty-value dim, got %v", err)
+	}
+	ok, err := e.Check("targetval")
+	if err != nil || !ok {
+		t.Fatalf("Check(targetval): ok=%v err=%v", ok, err)
+	}
+	ok, err = e.Check("other")
+	if err != nil || ok {
+		t.Fatalf("Check(other): expected false, got ok=%v err=%v", ok, err)
+	}
+}
+
+// TestAnyOfMatcherOnEmptyValuesDimension exercises the mAnyOf branch of the
+// same len(dim.values)==0 path in validateMatcher.
+func TestAnyOfMatcherOnEmptyValuesDimension(t *testing.T) {
+	t.Parallel()
+	e, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues()),
+		gorege.WithRules(gorege.Allow(gorege.AnyOf("x", "y"))),
+	)
+	if err != nil {
+		t.Fatalf("expected no validation error with anyOf matcher on empty-value dim, got %v", err)
+	}
+	ok, err := e.Check("x")
+	if err != nil || !ok {
+		t.Fatalf("Check(x): ok=%v err=%v", ok, err)
+	}
+	ok, err = e.Check("z")
+	if err != nil || ok {
+		t.Fatalf("Check(z): expected false, ok=%v err=%v", ok, err)
+	}
+}
+
 func TestAnalysisLimitZeroUsesDefault(t *testing.T) {
 	t.Parallel()
 	_, warnings, err := gorege.New(

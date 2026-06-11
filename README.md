@@ -13,7 +13,7 @@
 
 A small Go library for **first-match rule evaluation** over a fixed tuple of dimensions: access control, feature flags, A/B cohorts, product availability, and similar decisions all map to the same pattern.
 
-Design goals: idiomatic Go, immutable engines safe for concurrent use, explicit semantics (including `Explain` and dead/shadow rule warnings), and a true BFS-based `Closest` search for minimum Hamming distance. The API is influenced by [recht](https://github.com/dashersw/recht); gorege adds stronger guarantees and observability.
+Design goals: idiomatic Go, immutable engines safe for concurrent use, explicit semantics (including `Explain` and dead/shadow rule warnings), and a true BFS-based `Closest` search for minimum Hamming distance.
 
 - **Go 1.26+**
 - **Zero runtime dependencies** (standard library only)
@@ -110,7 +110,7 @@ Each rule is **ALLOW** or **DENY** plus one matcher per dimension (in order):
 
 Evaluation is **first match wins**. If nothing matches, `Check` returns `false`. Shorter rules implicitly wildcard trailing dimensions.
 
-`Check` requires exactly as many arguments as dimensions (`ErrArityMismatch` otherwise). `PartialCheck` allows a prefix tuple, including **zero** values (empty prefix: “could any full tuple still be allowed?”), with Recht-style trailing “unconstrained” behaviour. It returns `(bool, error)`; if you pass **more** values than dimensions you get `ErrArityMismatch` instead of a bare `false`, so overload is not mistaken for denial.
+`Check` requires exactly as many arguments as dimensions (`ErrArityMismatch` otherwise). `PartialCheck` allows a prefix tuple, including **zero** values (empty prefix: “could any full tuple still be allowed?”). For omitted trailing dimensions, matchers are treated as satisfied for `ALLOW` rules and as failed for `DENY` rules. It returns `(bool, error)`; if you pass **more** values than dimensions you get `ErrArityMismatch` instead of a bare `false`, so overload is not mistaken for denial.
 
 ## JSON config
 
@@ -250,6 +250,13 @@ This repo uses **[mise](https://mise.jdx.dev/)** for pinned Go (see `mise.toml`)
 | `task fuzz-load` / `task fuzz-check` | Go fuzz (default 5s; e.g. `task fuzz-load FUZZTIME=30s`) |
 
 Fuzz targets live in `fuzz_test.go`. Normal `go test` runs each fuzz function once with its seed corpus; use `-fuzz=FuzzLoad` (etc.) for real fuzzing.
+
+## Acknowledgements
+
+The original rule model and partial-check semantics were inspired by
+[recht](https://github.com/dashersw/recht). `gorege` is an independent Go
+implementation with its own API, validation, diagnostics, and search
+algorithms.
 
 ## Layout
 

@@ -120,3 +120,36 @@ func TestDeadRuleWarning(t *testing.T) {
 		t.Fatalf("expected dead rule warning, got %#v", warnings)
 	}
 }
+
+// TestExplainDenyRuleMatched verifies Explain when an explicit DENY rule is the
+// first match: Matched must be true, Allowed must be false, and Action must be
+// ActionDeny (not the implicit-deny path where Matched is false).
+func TestExplainDenyRuleMatched(t *testing.T) {
+	t.Parallel()
+	e, _, err := gorege.New(
+		gorege.WithDimensions(gorege.DimValues("a", "b")),
+		gorege.WithRules(
+			gorege.Deny("a"),
+			gorege.Allow(gorege.Wildcard),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := e.Explain("a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Matched {
+		t.Fatal("expected Matched=true for explicit DENY rule")
+	}
+	if x.Allowed {
+		t.Fatal("expected Allowed=false for DENY rule match")
+	}
+	if x.Action != gorege.ActionDeny {
+		t.Fatalf("expected Action=ActionDeny, got %v", x.Action)
+	}
+	if x.RuleIndex != 0 {
+		t.Fatalf("expected RuleIndex=0, got %d", x.RuleIndex)
+	}
+}

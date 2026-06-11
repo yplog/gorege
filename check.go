@@ -40,9 +40,10 @@ func (e *Engine) Check(values ...string) (bool, error) {
 // PartialCheck allows a shorter input prefix (including an empty prefix).
 // Trailing dimensions are unconstrained: a matcher at those positions is
 // treated as satisfied for ALLOW rules and as failed for DENY rules
-// (Recht-style behaviour). The empty prefix means “no values fixed yet”:
-// it is not an arity error (unlike [Engine.Check], which requires a full tuple).
-// Semantically it answers whether any completion could still be allowed—for
+// when deciding whether the prefix can still lead to an allowed tuple.
+// The empty prefix means “no values fixed yet”: it is not an arity error
+// (unlike [Engine.Check], which requires a full tuple). Semantically it
+// answers whether any completion could still be allowed—for
 // example, after PartialCheck("Guest") asks whether Guest can access for some
 // day, PartialCheck() asks whether anyone can access for some full tuple.
 //
