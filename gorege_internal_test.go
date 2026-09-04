@@ -237,9 +237,9 @@ func combinationsRightmostOracle(n, k int) [][]int {
 		if ma != mb {
 			return mb - ma
 		}
-		for i := len(a) - 1; i >= 0; i-- {
-			if a[i] != b[i] {
-				return b[i] - a[i]
+		for i, v := range slices.Backward(a) {
+			if v != b[i] {
+				return b[i] - v
 			}
 		}
 		return 0
