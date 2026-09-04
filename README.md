@@ -15,7 +15,7 @@ A small Go library for **first-match rule evaluation** over a fixed tuple of dim
 
 Design goals: idiomatic Go, immutable engines safe for concurrent use, explicit semantics (including `Explain` and dead/shadow rule warnings), and a true BFS-based `Closest` search for minimum Hamming distance.
 
-- **Go 1.26+**
+- **Go 1.27+**
 - **Zero runtime dependencies** (standard library only)
 - **JSON** configuration via `Load` / `LoadWithOptions` / `LoadFileWithOptions` (`.json` only)
 

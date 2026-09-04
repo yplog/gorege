@@ -327,7 +327,7 @@ func TestPrintSummaryTextTruncation(t *testing.T) {
 		Limit:            1000,
 		AllowToDeny:      60,
 	}
-	for i := 0; i < 60; i++ {
+	for i := range 60 {
 		s.Transitions = append(s.Transitions, transition{
 			Kind:  "ALLOW\u2192DENY",
 			Tuple: []string{fmt.Sprintf("v%02d", i)},

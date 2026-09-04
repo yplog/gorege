@@ -7,6 +7,47 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.3.0] - 2026-09-05
+
+### Changed
+
+- **Go 1.27.1** — `go.mod`, `go.work`, all three example modules, `mise.toml`, and the
+  CI workflow now target Go 1.27.1. Minimum supported Go version is 1.27.
+- `go fix ./...` applied two Go-1.27-suggested test-only modernizations
+  (`gorege_internal_test.go`, `cmd/gorege/diff_test.go`): a reverse loop rewritten with
+  `slices.Backward`, and a counted loop rewritten as `for i := range n`. No behavior
+  change; no production code was touched.
+
+### Performance
+
+No functional changes accompany this release — only the toolchain bump and the two
+test-only rewrites above. To confirm the bump introduces no regression, the
+[gorege-bench](https://github.com/yplog/gorege-bench) suite was run against the
+**identical** pre-bump gorege source under both toolchains (Apple M2 Pro, darwin/arm64,
+`count=6`, `benchstat`, `-bench='_Gorege'`):
+
+| Benchmark | Go 1.26.4 | Go 1.27.1 | Δ |
+|-----------|-----------|-----------|---|
+| `Check_Allow` | 40.86 ns | 42.07 ns | +2.97% |
+| `Check_MixedLoad` | 7.603 ns | 7.266 ns | −4.43% |
+| `Explain_Allow` | 69.19 ns | 68.22 ns | −1.41% |
+| `Closest_D1` | 110.10 ns | 94.88 ns | −13.82% |
+| `Closest_D2` | 264.4 ns | 244.5 ns | −7.55% |
+| `ClosestIn_ByName` | 149.2 ns | 135.8 ns | −9.01% |
+| `New_SkipAnalysis` | 1.730 µs | 1.446 µs | −16.42% |
+| `New_WithAnalysis` | 3.145 µs | 2.837 µs | −9.79% |
+| `New_WithAnalysis_RuleScale` — N=1000 | 221.7 µs | 189.0 µs | −14.77% |
+| **geomean (all `_Gorege` benchmarks)** | **179.5 ns** | **169.9 ns** | **−5.40%** |
+
+No `B/op` or `allocs/op` changed for any benchmark. A handful of sub-40ns, zero-alloc
+benchmarks (`Check_Allow`, `Check_Deny`, `Scale_Rules/N=150,500,1000`) show a small
+(≤5.3%) statistically-significant uptick that is consistent with measurement noise at
+that timescale rather than a real regression — every other benchmark, including all
+allocation-heavy `New_*` construction paths, is flat or faster on Go 1.27.1. Full raw
+data and the `benchstat` comparison are committed to `gorege-bench/results/`.
+
+---
+
 ## [1.2.0] - 2026-06-11
 
 ### Changed
@@ -341,6 +382,7 @@ The linear scaling characteristic is preserved; only the per-rule constant impro
 
 Initial public release.
 
+[1.3.0]: https://github.com/yplog/gorege/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/yplog/gorege/compare/v1.0.2...v1.2.0
 [1.0.0]: https://github.com/yplog/gorege/compare/v0.5.0...v1.0.0
 [0.5.0]: https://github.com/yplog/gorege/compare/v0.4.0...v0.5.0
