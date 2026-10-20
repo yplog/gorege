@@ -7,6 +7,62 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.3.1] - 2026-10-20
+
+### Changed
+
+- **Go 1.27.3** — `go.mod`, `go.work`, all three example modules, `mise.toml`, and the
+  CI workflow now target Go 1.27.3. Minimum supported Go version is still 1.27.
+  This picks up the Go 1.27.2 and 1.27.3 point releases: security fixes to the `go`
+  command, `crypto/tls`, `crypto/x509`, `html/template`, `net/http`, `net/textproto`
+  and `os`, plus compiler, runtime, `cover` and vet bug fixes. gorege has no
+  dependencies beyond the standard library, so the bump changes no library behavior.
+  `go fix ./...` suggested no rewrites, and no source code was touched.
+- **Coverage figure**: total statement coverage now reads **95.9%** (it was 96.1% on Go 1.27.1).
+  The tests and code are identical. Go 1.27.2 fixed `cmd/cover` double-counting
+  statements in split blocks (golang/go#81832). Running the same commit under both
+  toolchains changes only the `NumStmt` column of the profile, for example
+  `closest.go:150` (2 → 1) and `cmd/gorege/diff.go:170`.
+
+### Performance
+
+The [gorege-bench](https://github.com/yplog/gorege-bench) suite was run against the
+**identical** pre-bump gorege source under both toolchains (Intel Core Ultra 7 155U,
+linux/amd64, `count=6`, `benchstat`, `-bench='_Gorege'`):
+
+| Benchmark | Go 1.27.1 | Go 1.27.3 | Δ |
+|-----------|-----------|-----------|---|
+| `Check_Allow` | 38.76 ns | 39.80 ns | +2.71% |
+| `Check_Parallel` | 5.921 ns | 6.641 ns | +12.16% |
+| `Check_MixedLoad` | 8.601 ns | 9.277 ns | +7.87% |
+| `Explain_Allow` | 73.39 ns | 74.47 ns | ~ |
+| `Closest_D1` | 124.4 ns | 120.3 ns | −3.33% |
+| `Closest_D2` | 303.4 ns | 296.3 ns | −2.34% |
+| `ClosestIn_ByName` | 166.7 ns | 169.4 ns | ~ |
+| `New_SkipAnalysis` | 1.998 µs | 2.002 µs | ~ |
+| `New_WithAnalysis` | 3.708 µs | 3.683 µs | ~ |
+| `New_WithAnalysis_RuleScale` — N=1000 | 264.4 µs | 257.6 µs | −2.58% |
+| **geomean (all `_Gorege` benchmarks)** | **198.4 ns** | **200.6 ns** | **+1.12%** |
+
+No `B/op` or `allocs/op` value changed for any benchmark. The single-threaded
+benchmarks are flat: each side wins some, and every change is within ±4%. Only the two
+`RunParallel` benchmarks moved by more than that. The flagged benchmarks were re-run
+with the two test binaries alternating (`count=10`):
+
+- `Check_MixedLoad`, `Scale_Rules` N=500 and N=1000: not significant.
+- `Check_Parallel`: **+9.6%** (6.09 ns → 6.67 ns).
+
+The machine code of every gorege function, and of the benchmark body itself, is
+byte-for-byte identical between the two toolchains (`go tool objdump`, ignoring absolute
+addresses). The `Check_Parallel` difference therefore comes from the runtime's
+goroutine scheduling or from code layout, not from gorege's own code. It affects a sub-7 ns,
+zero-alloc, 14-goroutine micro-benchmark on a hybrid P/E-core laptop CPU. These numbers
+were measured on a different machine from the 1.3.0 table (Apple M2 Pro), so do not
+compare absolute values across the two tables. The raw data and the `benchstat`
+comparison are in `gorege-bench/results/`.
+
+---
+
 ## [1.3.0] - 2026-09-05
 
 ### Changed
@@ -382,6 +438,7 @@ The linear scaling characteristic is preserved; only the per-rule constant impro
 
 Initial public release.
 
+[1.3.1]: https://github.com/yplog/gorege/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/yplog/gorege/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/yplog/gorege/compare/v1.0.2...v1.2.0
 [1.0.0]: https://github.com/yplog/gorege/compare/v0.5.0...v1.0.0
