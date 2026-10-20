@@ -123,25 +123,9 @@ func (m matcher) unconstrainedMatch(act Action) bool {
 	return false
 }
 
+// cloneRules copies the rule slice; matcher slices are immutable and shared.
+// Rule.m and matcher.vals are unexported, built fresh by Allow/Deny/AnyOf and the
+// loader, and never modified after construction.
 func cloneRules(rules []Rule) []Rule {
-	out := make([]Rule, len(rules))
-	for i := range rules {
-		out[i] = Rule{
-			Name: rules[i].Name,
-			act:  rules[i].act,
-			m:    cloneMatchers(rules[i].m),
-		}
-	}
-	return out
-}
-
-func cloneMatchers(m []matcher) []matcher {
-	out := make([]matcher, len(m))
-	for i, v := range m {
-		out[i] = matcher{kind: v.kind}
-		if v.vals != nil {
-			out[i].vals = append([]string(nil), v.vals...)
-		}
-	}
-	return out
+	return append(make([]Rule, 0, len(rules)), rules...)
 }
