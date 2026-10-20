@@ -1,5 +1,5 @@
 [tools]
-go = "1.27.1"
+go = "1.27.3"
 
 # Task runner (to execute Taskfile.yml commands)
 task = "latest"
