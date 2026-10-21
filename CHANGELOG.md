@@ -7,6 +7,53 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.3.2] - 2026-10-21
+
+### Performance
+
+- **Faster engine construction.** `WithRules` and `Engine.Rules` no longer deep-copy
+  every rule's matchers. The matchers are unexported, built fresh by
+  `Allow`/`Deny`/`AnyOf` and the loader, and never modified after construction, so
+  copying the rule slice is enough. This removes two allocations per rule from `New()`.
+  The public API and behavior are unchanged.
+
+[gorege-bench](https://github.com/yplog/gorege-bench) compared v1.3.1 with this change
+using the new rebuild-cost benchmarks (dimension 15). The machine was an Intel Core
+Ultra 7 155U on linux/amd64 with Go 1.27.3. The two test binaries were run alternately,
+`count=10`, and compared with `benchstat`:
+
+| Benchmark | v1.3.1 | 1.3.2 | Δ |
+|-----------|--------|-------|---|
+| `Rebuild_Gorege_SkipAnalysis` — N=100 | 18.69 µs | 14.33 µs | −23.30% |
+| `Rebuild_Gorege_SkipAnalysis` — N=1000 | 208.6 µs | 166.2 µs | −20.33% |
+| `Rebuild_Gorege_SkipAnalysis` — N=10000 | 2.116 ms | 1.710 ms | −19.17% |
+| `Rebuild_Gorege_DefaultAnalysis` — N=1000 | 266.5 µs | 225.3 µs | −15.46% |
+| `New_SkipAnalysis` (gym) | 1.971 µs | 1.744 µs | −11.52% |
+| `New_WithAnalysis_RuleScale` — N=1000 | 269.5 µs | 223.5 µs | −17.05% |
+| `New_LargeProductEarlyWins` — N=1000 | 715.4 µs | 513.7 µs | −28.19% |
+
+- All 14 construction benchmarks are faster, by 4–31%.
+- Rebuild allocates 14–16% fewer bytes and 50–66% fewer objects. At N=10000 the
+  object count drops from 30,125 to 10,125.
+- None of the 30 query benchmarks (`Check`, `Explain`, `PartialCheck`, `Closest*`,
+  `Scale_*`, parallel and mixed load) changed significantly.
+- The other engines' code was identical in both binaries, so they served as a noise
+  control. Only 1 of their 54 measurements was significant (+3.3%, p=0.029), which
+  is what chance alone predicts at that threshold.
+- At N=1000, rebuild now takes 1.6× as long as gorbac's, down from 2.0×. gorege still
+  rebuilds 10–100× faster than casbin, expr, cedar and OPA.
+
+Two further optimisations were measured and **rejected** because they missed the
+acceptance bar (≥5% significant construction gain, no query regression):
+
+- *Top-down trie build with presized child containers*: no net rebuild gain, 22–25%
+  more bytes allocated, and multi-dimensional builds were 28–32% slower.
+- *Chunked slab for trie nodes*: allocations fell by up to 99%, but time improved
+  only 2–5%. The gain stayed at 2–4% with `GOMAXPROCS=1`, so no GC cost was hidden
+  behind background workers. Multi-dimensional builds used 21–23% more memory.
+
+---
+
 ## [1.3.1] - 2026-10-20
 
 ### Changed
@@ -438,6 +485,7 @@ The linear scaling characteristic is preserved; only the per-rule constant impro
 
 Initial public release.
 
+[1.3.2]: https://github.com/yplog/gorege/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/yplog/gorege/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/yplog/gorege/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/yplog/gorege/compare/v1.0.2...v1.2.0
